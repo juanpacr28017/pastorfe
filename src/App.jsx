@@ -1,61 +1,65 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import viteLogo from "/vite.svg";
-import "./App.css";
+import { useEffect, useRef, useState } from "react";
 import { enviarPosicion } from "./api";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 
 function App() {
-  const [count, setCount] = useState(0);
+  const mapRef = useRef(null);
+  const markerRef = useRef(null);
   const [estado, setEstado] = useState(null);
-  const [lastPos, setLastPos] = useState(null);
 
-  const handleEnviar = async () => {
-    // Aquí puedes reemplazar con valores dinámicos si quieres
-    const pos = {
-      device_id: "test123",
-      lat: 40.4165,
-      lon: -3.7038,
-    };
-    setLastPos(pos);
+  useEffect(() => {
+    // Inicializar el mapa
+    mapRef.current = L.map("map").setView([40.4168, -3.7038], 15);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+    }).addTo(mapRef.current);
 
-    const res = await enviarPosicion(pos);
-    if (res?.estado) setEstado(res.estado);
+    // Dibujar geocerca
+    const fenceCoords = [
+      [40.4180, -3.7050],
+      [40.4180, -3.7000],
+      [40.4140, -3.7000],
+      [40.4140, -3.7050]
+    ];
+    L.polygon(fenceCoords, { color: "green" }).addTo(mapRef.current);
+
+    // Crear marcador inicial
+    markerRef.current = L.circleMarker([40.4168, -3.7038], { radius: 8 }).addTo(mapRef.current);
+  }, []);
+
+  const handleEnviar = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocalización no soportada");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      const pos = {
+        device_id: "test123",
+        lat: position.coords.latitude,
+        lon: position.coords.longitude,
+      };
+
+      try {
+        const res = await enviarPosicion(pos);
+        setEstado(res.estado);
+        markerRef.current.setLatLng([pos.lat, pos.lon]);
+        mapRef.current.setView([pos.lat, pos.lon]);
+      } catch (err) {
+        console.error("Error en API:", err);
+        alert("Error al enviar posición");
+      }
+    });
   };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-
-      <h1>Vite + React</h1>
-
-      {/* Contador */}
-      <div className="card">
-        <button onClick={() => setCount((c) => c + 1)}>count is {count}</button>
-        <p>Edit <code>src/App.jsx</code> and save to test HMR</p>
-      </div>
-
-      {/* Enviar posición al backend */}
-      <div className="card">
-        <button onClick={handleEnviar}>Enviar posición</button>
-        {lastPos && (
-          <p>
-            Última posición: lat={lastPos.lat}, lon={lastPos.lon}
-          </p>
-        )}
-        {estado && <p>Estado geofence: {estado}</p>}
-      </div>
-
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <div>
+      <h3>Perimeter Dashboard (Prototype)</h3>
+      <button onClick={handleEnviar}>Enviar posición actual</button>
+      {estado && <p>Estado: {estado}</p>}
+      <div id="map" style={{ height: "90vh", width: "100%" }}></div>
+    </div>
   );
 }
 

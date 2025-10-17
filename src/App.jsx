@@ -60,12 +60,12 @@ function App() {
   };
 
   return (
-    <div>
-      <h3>Perimeter Dashboard (Prototype)</h3>
+    <>
+      <h4>Perimeter Dashboard (Prototype)</h4>
+      <div id="map" style={{ height: "500px" }}></div>
       <button onClick={handleEnviar}>Enviar posición actual</button>
       {estado && <p>Estado: {estado}</p>}
-      <div id="map" style={{ height: "90vh", width: "100%" }}></div>
-    </div>
+    </>
   );
 }
 

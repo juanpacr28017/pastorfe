@@ -1,5 +1,5 @@
 // src/api.js
-const API_URL = import.meta.env.VITE_API_URL || "https://perimeter-prototype.onrender.com/";
+const API_URL = import.meta.env.VITE_API_URL || "https://perimeter-prototype.onrender.com";
 
 /**
  * Envía una posición al backend FastAPI
@@ -19,3 +19,4 @@ export const enviarPosicion = async (pos) => {
     return null;
   }
 };
+

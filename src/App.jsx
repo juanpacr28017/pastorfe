@@ -1,37 +1,75 @@
 import { useEffect, useRef, useState } from "react";
-import { enviarPosicion } from "./api";
+import { enviarPosicion, obtenerGeocerca } from "./api";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet-draw/dist/leaflet.draw.css";
+import "leaflet-draw";
 
 function App() {
   const mapRef = useRef(null);
   const markerRef = useRef(null);
+  const drawnItemsRef = useRef(null);
   const [estado, setEstado] = useState(null);
 
   useEffect(() => {
-    // Verificar si el contenedor ya tiene un mapa
-    const existingMap = document.getElementById("map");
-    if (existingMap && existingMap._leaflet_id) {
-      existingMap._leaflet_id = null; // forzar reinicialización
-    }
+    const initMap = async () => {
+      const existingMap = document.getElementById("map");
+      if (existingMap && existingMap._leaflet_id) {
+        existingMap._leaflet_id = null;
+      }
 
-    // Inicializar el mapa
-    mapRef.current = L.map("map").setView([40.4168, -3.7038], 15);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-    }).addTo(mapRef.current);
+      mapRef.current = L.map("map").setView([40.4168, -3.7038], 15);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+      }).addTo(mapRef.current);
 
-    // Dibujar geocerca
-    const fenceCoords = [
-      [40.4180, -3.7050],
-      [40.4180, -3.7000],
-      [40.4140, -3.7000],
-      [40.4140, -3.7050]
-    ];
-    L.polygon(fenceCoords, { color: "green" }).addTo(mapRef.current);
+      // Cargar geocerca desde backend
+      const geojson = await obtenerGeocerca();
+      if (geojson) {
+        L.geoJSON(geojson, {
+          style: { color: "green", fillOpacity: 0.3 }
+        }).addTo(mapRef.current);
+      }
 
-    // Crear marcador inicial
-    markerRef.current = L.circleMarker([40.4168, -3.7038], { radius: 8 }).addTo(mapRef.current);
+      // Grupo para elementos dibujados
+      drawnItemsRef.current = new L.FeatureGroup().addTo(mapRef.current);
+
+      // Control de dibujo
+      const drawControl = new L.Control.Draw({
+        draw: {
+          polygon: true,
+          circle: false,
+          rectangle: false,
+          marker: false,
+          polyline: false
+        },
+        edit: {
+          featureGroup: drawnItemsRef.current
+        }
+      });
+      mapRef.current.addControl(drawControl);
+
+      // Evento al crear una geocerca
+      mapRef.current.on(L.Draw.Event.CREATED, function (e) {
+        const layer = e.layer;
+        drawnItemsRef.current.addLayer(layer);
+        const geojson = layer.toGeoJSON();
+
+        fetch("https://perimeter-prototype.onrender.com/set_geofence", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(geojson.geometry)
+        })
+          .then(res => res.json())
+          .then(data => alert("Geocerca guardada correctamente"))
+          .catch(err => alert("Error al guardar geocerca"));
+      });
+
+      // Marcador inicial
+      markerRef.current = L.circleMarker([40.4168, -3.7038], { radius: 8 }).addTo(mapRef.current);
+    };
+
+    initMap();
   }, []);
 
   const handleEnviar = () => {

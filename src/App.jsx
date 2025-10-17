@@ -9,6 +9,11 @@ function App() {
   const [estado, setEstado] = useState(null);
 
   useEffect(() => {
+    // Destruir el mapa si ya existe
+    if (mapRef.current) {
+      mapRef.current.remove();
+    }
+
     // Inicializar el mapa
     mapRef.current = L.map("map").setView([40.4168, -3.7038], 15);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {

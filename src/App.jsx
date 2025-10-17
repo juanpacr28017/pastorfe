@@ -9,9 +9,10 @@ function App() {
   const [estado, setEstado] = useState(null);
 
   useEffect(() => {
-    // Destruir el mapa si ya existe
-    if (mapRef.current) {
-      mapRef.current.remove();
+    // Verificar si el contenedor ya tiene un mapa
+    const existingMap = document.getElementById("map");
+    if (existingMap && existingMap._leaflet_id) {
+      existingMap._leaflet_id = null; // forzar reinicialización
     }
 
     // Inicializar el mapa

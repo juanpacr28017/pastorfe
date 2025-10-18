@@ -68,8 +68,41 @@ function App() {
         }
       });
 
-      // Marcador inicial
-      markerRef.current = L.circleMarker([40.4168, -3.7038], { radius: 8 }).addTo(mapRef.current);
+      // Marcador inicial para tu dispositivo local
+      markerRef.current = L.circleMarker([40.4168, -3.7038], { radius: 8, color: "blue" }).addTo(mapRef.current);
+
+      // === Streaming SSE: recibir posiciones de todos los dispositivos ===
+      const eventSource = new EventSource("https://tu-backend.onrender.com/stream"); // Cambia por tu backend real
+      const markers = {}; // Diccionario de marcadores por device_id
+
+      eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        const { device_id, lat, lon, estado } = data;
+
+        // Ignorar marcador local si quieres distinguirlo
+        if (device_id === "test123") return;
+
+        // Crear marcador si no existe
+        if (!markers[device_id]) {
+          const marker = L.circleMarker([lat, lon], {
+            radius: 6,
+            color: estado === "inside" ? "green" : "red",
+            fillOpacity: 0.8,
+          })
+            .addTo(mapRef.current)
+            .bindPopup(`ID: ${device_id}<br>Estado: ${estado}`);
+          markers[device_id] = marker;
+        } else {
+          // Actualizar posición y color
+          markers[device_id]
+            .setLatLng([lat, lon])
+            .setStyle({ color: estado === "inside" ? "green" : "red" });
+          markers[device_id].getPopup().setContent(`ID: ${device_id}<br>Estado: ${estado}`);
+        }
+      };
+
+      // Cerrar SSE al desmontar
+      return () => eventSource.close();
     };
 
     initMap();
@@ -83,7 +116,7 @@ function App() {
 
     navigator.geolocation.getCurrentPosition(async (position) => {
       const pos = {
-        device_id: "test123",
+        device_id: "test123", // tu dispositivo local
         lat: position.coords.latitude,
         lon: position.coords.longitude,
       };

@@ -13,10 +13,10 @@ function App() {
 
   useEffect(() => {
     const initMap = async () => {
-      // ✅ Evitar reinicialización
-      if (mapRef.current && mapRef.current._leaflet_id) {
-        console.warn("🛑 El mapa ya está inicializado.");
-        return;
+      // ✅ Si ya existe un mapa, eliminarlo correctamente
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
       }
 
       const map = L.map("map").setView([40.4168, -3.7038], 15);
@@ -137,4 +137,3 @@ function App() {
 }
 
 export default App;
-

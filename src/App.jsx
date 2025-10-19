@@ -13,12 +13,14 @@ function App() {
 
   useEffect(() => {
     const initMap = async () => {
-      // Inicializar mapa centrado en Madrid
-      if (mapRef.current) {
-  mapRef.current.remove();
-  mapRef.current = null;
+
+const mapContainer = document.getElementById("map");
+if (mapContainer && mapContainer._leaflet_id) {
+  mapContainer.innerHTML = "";
 }
-mapRef.current = L.map("map").setView([40.4168, -3.7038], 15);
+
+      // Inicializar mapa centrado en Madrid
+      mapRef.current = L.map("map").setView([40.4168, -3.7038], 15);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>',
@@ -77,11 +79,7 @@ mapRef.current = L.map("map").setView([40.4168, -3.7038], 15);
         setEstado(res.estado || "Posición enviada correctamente");
 
         // Actualizar marcador local
-        if (!mapRef.current) {
-  console.error("❌ El mapa no está listo aún.");
-  return;
-}
-if (!markersRef.current[pos.device_id]) {
+        if (!markersRef.current[pos.device_id]) {
           markersRef.current[pos.device_id] = L.circleMarker([pos.lat, pos.lon], { radius: 8 }).addTo(mapRef.current);
         } else {
           markersRef.current[pos.device_id].setLatLng([pos.lat, pos.lon]);

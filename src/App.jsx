@@ -5,49 +5,76 @@ import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
 import "leaflet-draw";
 
+const API_URL = import.meta.env.VITE_API_URL || "https://perimeter-prototype.onrender.com";
+
 function App() {
   const mapRef = useRef(null);
-  const markersRef = useRef({}); // Guardará los markers por device_id
+  const markerRef = useRef(null); // Posición del navegador
   const drawnItemsRef = useRef(null);
+  const devicesRef = useRef({}); // Marcadores de dispositivos simulados
   const [estado, setEstado] = useState(null);
 
   useEffect(() => {
+    // Evitar reinicializar mapa en hot reload
+    const existingMap = mapRef.current;
+    if (existingMap) {
+      existingMap.remove();
+      mapRef.current = null;
+    }
+
     const initMap = async () => {
-      // Inicializar mapa centrado en Madrid
       mapRef.current = L.map("map").setView([40.4168, -3.7038], 15);
+
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>',
       }).addTo(mapRef.current);
 
-      // Crear grupo de capas para dibujos
-      drawnItemsRef.current = new L.FeatureGroup().addTo(mapRef.current);
-
-      // Control de dibujo (solo polígonos)
-      const drawControl = new L.Control.Draw({
-        draw: { polygon: true },
-        edit: { featureGroup: drawnItemsRef.current },
-      });
-      mapRef.current.addControl(drawControl);
-
-      // Cargar geocerca desde backend
+      // Cargar geocerca
       const geojson = await obtenerGeocerca();
       if (geojson) {
         L.geoJSON(geojson, { style: { color: "green", fillOpacity: 0.3 } }).addTo(mapRef.current);
       }
 
-      // EventSource para streaming de posiciones
-      const evtSource = new EventSource("https://perimeter-prototype.onrender.com/stream");
-      evtSource.onmessage = (e) => {
-        const data = JSON.parse(e.data);
-        const { device_id, lat, lon } = data;
-        console.log("Evento SSE recibido:", data);
+      // Grupo para dibujos
+      drawnItemsRef.current = new L.FeatureGroup().addTo(mapRef.current);
 
-        // Crear o actualizar marcador
-        if (!markersRef.current[device_id]) {
-          markersRef.current[device_id] = L.circleMarker([lat, lon], { radius: 8 }).addTo(mapRef.current);
+      const drawControl = new L.Control.Draw({
+        draw: { polygon: true, circle: false, rectangle: false, marker: false, polyline: false },
+        edit: { featureGroup: drawnItemsRef.current },
+      });
+      mapRef.current.addControl(drawControl);
+
+      mapRef.current.on(L.Draw.Event.CREATED, async (e) => {
+        const layer = e.layer;
+        drawnItemsRef.current.addLayer(layer);
+        const geojson = layer.toGeoJSON().geometry;
+        const res = await guardarGeocerca(geojson);
+        if (res?.success !== false) {
+          alert("✅ Geocerca guardada correctamente");
         } else {
-          markersRef.current[device_id].setLatLng([lat, lon]);
+          alert("❌ Error al guardar geocerca");
+        }
+      });
+
+      // Marcador del navegador
+      markerRef.current = L.circleMarker([40.4168, -3.7038], { radius: 8, color: "blue" }).addTo(mapRef.current);
+
+      // Escuchar dispositivos simulados vía SSE
+      const source = new EventSource(`${API_URL}/stream`);
+      source.onmessage = (event) => {
+        const pos = JSON.parse(event.data);
+        const { device_id, lat, lon } = pos;
+
+        if (devicesRef.current[device_id]) {
+          // Actualizar posición existente
+          devicesRef.current[device_id].setLatLng([lat, lon]);
+        } else {
+          // Crear nuevo marcador
+          devicesRef.current[device_id] = L.circleMarker([lat, lon], {
+            radius: 6,
+            color: "red",
+          }).addTo(mapRef.current).bindPopup(`Device: ${device_id}`);
         }
       };
     };
@@ -71,14 +98,7 @@ function App() {
       try {
         const res = await enviarPosicion(pos);
         setEstado(res.estado || "Posición enviada correctamente");
-
-        // Actualizar marcador local
-        if (!markersRef.current[pos.device_id]) {
-          markersRef.current[pos.device_id] = L.circleMarker([pos.lat, pos.lon], { radius: 8 }).addTo(mapRef.current);
-        } else {
-          markersRef.current[pos.device_id].setLatLng([pos.lat, pos.lon]);
-        }
-
+        markerRef.current.setLatLng([pos.lat, pos.lon]);
         mapRef.current.setView([pos.lat, pos.lon]);
       } catch (err) {
         console.error("Error al enviar posición:", err);

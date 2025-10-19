@@ -73,3 +73,4 @@ export const guardarGeocerca = async (geojson, user_id = "default_user") => {
   }
 };
 
+

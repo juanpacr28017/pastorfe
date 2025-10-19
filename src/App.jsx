@@ -9,14 +9,14 @@ const API_URL = import.meta.env.VITE_API_URL || "https://perimeter-prototype.onr
 
 function App() {
   const mapRef = useRef(null);
-  const markerRef = useRef(null); 
+  const markerRef = useRef(null);
   const drawnItemsRef = useRef(null);
-  const devicesRef = useRef({}); 
+  const devicesRef = useRef({});
   const eventSourceRef = useRef(null);
   const [estado, setEstado] = useState(null);
 
   useEffect(() => {
-    // Solo inicializar mapa si no existe
+    // Si el mapa ya existe, no hacemos nada
     if (mapRef.current) return;
 
     const initMap = async () => {
@@ -33,7 +33,6 @@ function App() {
         L.geoJSON(geojson, { style: { color: "green", fillOpacity: 0.3 } }).addTo(mapRef.current);
       }
 
-      // Grupo para dibujos
       drawnItemsRef.current = new L.FeatureGroup().addTo(mapRef.current);
 
       const drawControl = new L.Control.Draw({
@@ -57,7 +56,7 @@ function App() {
       // Marcador del navegador
       markerRef.current = L.circleMarker([40.4168, -3.7038], { radius: 8, color: "blue" }).addTo(mapRef.current);
 
-      // Conexión SSE solo una vez
+      // SSE solo si no existe
       if (!eventSourceRef.current) {
         eventSourceRef.current = new EventSource(`${API_URL}/stream`);
         eventSourceRef.current.onmessage = (event) => {
@@ -80,7 +79,6 @@ function App() {
 
     initMap();
 
-    // Cleanup al desmontar
     return () => {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();

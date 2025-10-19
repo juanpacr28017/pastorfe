@@ -9,15 +9,20 @@ const API_URL = import.meta.env.VITE_API_URL || "https://perimeter-prototype.onr
 
 function App() {
   const mapRef = useRef(null);
-  const markerRef = useRef(null);
-  const drawnItemsRef = useRef(null);
-  const devicesRef = useRef({});
-  const eventSourceRef = useRef(null);
+  const markerRef = useRef(null); // Marcador del navegador
+  const drawnItemsRef = useRef(null); // Grupo para geocercas dibujadas
+  const devicesRef = useRef({}); // Marcadores de dispositivos simulados
+  const eventSourceRef = useRef(null); // SSE
   const [estado, setEstado] = useState(null);
 
   useEffect(() => {
-    // Evitar reinicializar mapa en hot reload
-    if (mapRef.current) return;
+    const mapContainer = document.getElementById("map");
+
+    // Si ya existe un mapa en este div, lo eliminamos
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
 
     const initMap = async () => {
       mapRef.current = L.map("map").setView([40.4168, -3.7038], 15);
@@ -80,10 +85,15 @@ function App() {
 
     initMap();
 
+    // Cleanup al desmontar componente
     return () => {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
+      }
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
       }
     };
   }, []);

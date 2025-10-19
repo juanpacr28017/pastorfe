@@ -16,10 +16,13 @@ function App() {
   const [estado, setEstado] = useState(null);
 
   useEffect(() => {
-    // Evita inicializar varias veces en StrictMode
-    if (mapRef.current || !document.getElementById("map")) return;
+    // Si ya existe un mapa, no hacemos nada
+    if (mapRef.current) return;
 
     const initMap = async () => {
+      // Inicializar mapa solo si no existe otro mapa en el div
+      if (!document.getElementById("map") || L.DomUtil.get("map")?.._leaflet_id) return;
+
       mapRef.current = L.map("map").setView([40.4168, -3.7038], 15);
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -33,8 +36,8 @@ function App() {
         L.geoJSON(geojson, { style: { color: "green", fillOpacity: 0.3 } }).addTo(mapRef.current);
       }
 
-      // Grupo para dibujos
       drawnItemsRef.current = new L.FeatureGroup().addTo(mapRef.current);
+
       const drawControl = new L.Control.Draw({
         draw: { polygon: true, circle: false, rectangle: false, marker: false, polyline: false },
         edit: { featureGroup: drawnItemsRef.current },
@@ -46,14 +49,16 @@ function App() {
         drawnItemsRef.current.addLayer(layer);
         const geojson = layer.toGeoJSON().geometry;
         const res = await guardarGeocerca(geojson);
-        if (res?.success !== false) alert("✅ Geocerca guardada correctamente");
-        else alert("❌ Error al guardar geocerca");
+        if (res?.success !== false) {
+          alert("✅ Geocerca guardada correctamente");
+        } else {
+          alert("❌ Error al guardar geocerca");
+        }
       });
 
-      // Marcador del navegador
       markerRef.current = L.circleMarker([40.4168, -3.7038], { radius: 8, color: "blue" }).addTo(mapRef.current);
 
-      // SSE para dispositivos simulados
+      // SSE solo si no existe
       if (!eventSourceRef.current) {
         eventSourceRef.current = new EventSource(`${API_URL}/stream`);
         eventSourceRef.current.onmessage = (event) => {
@@ -65,9 +70,10 @@ function App() {
           if (devicesRef.current[device_id]) {
             devicesRef.current[device_id].setLatLng([lat, lon]);
           } else {
-            devicesRef.current[device_id] = L.circleMarker([lat, lon], { radius: 6, color: "red" })
-              .addTo(mapRef.current)
-              .bindPopup(`Device: ${device_id}`);
+            devicesRef.current[device_id] = L.circleMarker([lat, lon], {
+              radius: 6,
+              color: "red",
+            }).addTo(mapRef.current).bindPopup(`Device: ${device_id}`);
           }
         };
       }
@@ -88,10 +94,17 @@ function App() {
   }, []);
 
   const handleEnviar = () => {
-    if (!navigator.geolocation) return alert("Geolocalización no soportada");
+    if (!navigator.geolocation) {
+      alert("Geolocalización no soportada");
+      return;
+    }
 
     navigator.geolocation.getCurrentPosition(async (position) => {
-      const pos = { device_id: "test123", lat: position.coords.latitude, lon: position.coords.longitude };
+      const pos = {
+        device_id: "test123",
+        lat: position.coords.latitude,
+        lon: position.coords.longitude,
+      };
 
       try {
         const res = await enviarPosicion(pos);
@@ -111,7 +124,15 @@ function App() {
       <div id="map" style={{ height: "500px", border: "1px solid #ccc", borderRadius: "4px" }}></div>
       <button
         onClick={handleEnviar}
-        style={{ marginTop: "10px", padding: "8px 12px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
+        style={{
+          marginTop: "10px",
+          padding: "8px 12px",
+          backgroundColor: "#007bff",
+          color: "white",
+          border: "none",
+          borderRadius: "4px",
+          cursor: "pointer",
+        }}
       >
         Enviar posición actual
       </button>

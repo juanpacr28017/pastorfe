@@ -2,8 +2,8 @@
 const API_URL = import.meta.env.VITE_API_URL || "https://perimeter-prototype.onrender.com";
 
 /**
- * Envía una posición al backend FastAPI
- * pos = { device_id: string, lat: number, lon: number }
+ * Envía una posición al backend
+ * pos = { device_id: string, lat: number, lon: number, user_id?: string }
  */
 export const enviarPosicion = async (pos) => {
   try {
@@ -12,12 +12,7 @@ export const enviarPosicion = async (pos) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(pos),
     });
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`Error al enviar posición: ${errorText}`);
-    }
-
+    if (!res.ok) throw new Error(await res.text());
     return await res.json();
   } catch (err) {
     console.error("[API] Error enviarPosicion:", err);
@@ -26,26 +21,21 @@ export const enviarPosicion = async (pos) => {
 };
 
 /**
- * Obtiene la geocerca desde el backend
+ * Obtiene la geocerca del usuario
  */
-export const obtenerGeocerca = async () => {
+export const obtenerGeocerca = async (user_id = "default_user") => {
   try {
-    const res = await fetch(`${API_URL}/get_geofence`);
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`Error al obtener geocerca: ${errorText}`);
-    }
-
+    const res = await fetch(`${API_URL}/get_geofence?user_id=${user_id}`);
+    if (!res.ok) throw new Error(await res.text());
     return await res.json();
   } catch (err) {
     console.error("[API] Error obtenerGeocerca:", err);
-    return null; // Devuelve null si hay un error, para que App.jsx lo gestione
+    return null;
   }
 };
 
 /**
- * Guarda una geocerca nueva en el backend
+ * Guarda una geocerca del usuario
  * geojson = GeoJSON geometry
  */
 export const guardarGeocerca = async (geojson) => {
@@ -55,16 +45,12 @@ export const guardarGeocerca = async (geojson) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(geojson),
     });
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`Error al guardar geocerca: ${errorText}`);
-    }
-
+    if (!res.ok) throw new Error(await res.text());
     return await res.json();
   } catch (err) {
     console.error("[API] Error guardarGeocerca:", err);
     return { success: false, message: "Error al guardar geocerca" };
   }
 };
+
 

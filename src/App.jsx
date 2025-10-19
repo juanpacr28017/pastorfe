@@ -9,20 +9,15 @@ const API_URL = import.meta.env.VITE_API_URL || "https://perimeter-prototype.onr
 
 function App() {
   const mapRef = useRef(null);
-  const markerRef = useRef(null); // Marcador del navegador
-  const drawnItemsRef = useRef(null); // Grupo para geocercas dibujadas
-  const devicesRef = useRef({}); // Marcadores de dispositivos simulados
-  const eventSourceRef = useRef(null); // SSE
+  const markerRef = useRef(null);
+  const drawnItemsRef = useRef(null);
+  const devicesRef = useRef({});
+  const eventSourceRef = useRef(null);
   const [estado, setEstado] = useState(null);
 
   useEffect(() => {
-    const mapContainer = document.getElementById("map");
-
-    // Si ya existe un mapa en este div, lo eliminamos
-    if (mapRef.current) {
-      mapRef.current.remove();
-      mapRef.current = null;
-    }
+    // Evita inicializar varias veces en StrictMode
+    if (mapRef.current || !document.getElementById("map")) return;
 
     const initMap = async () => {
       mapRef.current = L.map("map").setView([40.4168, -3.7038], 15);
@@ -40,7 +35,6 @@ function App() {
 
       // Grupo para dibujos
       drawnItemsRef.current = new L.FeatureGroup().addTo(mapRef.current);
-
       const drawControl = new L.Control.Draw({
         draw: { polygon: true, circle: false, rectangle: false, marker: false, polyline: false },
         edit: { featureGroup: drawnItemsRef.current },
@@ -52,17 +46,14 @@ function App() {
         drawnItemsRef.current.addLayer(layer);
         const geojson = layer.toGeoJSON().geometry;
         const res = await guardarGeocerca(geojson);
-        if (res?.success !== false) {
-          alert("✅ Geocerca guardada correctamente");
-        } else {
-          alert("❌ Error al guardar geocerca");
-        }
+        if (res?.success !== false) alert("✅ Geocerca guardada correctamente");
+        else alert("❌ Error al guardar geocerca");
       });
 
       // Marcador del navegador
       markerRef.current = L.circleMarker([40.4168, -3.7038], { radius: 8, color: "blue" }).addTo(mapRef.current);
 
-      // SSE solo si no existe
+      // SSE para dispositivos simulados
       if (!eventSourceRef.current) {
         eventSourceRef.current = new EventSource(`${API_URL}/stream`);
         eventSourceRef.current.onmessage = (event) => {
@@ -74,10 +65,9 @@ function App() {
           if (devicesRef.current[device_id]) {
             devicesRef.current[device_id].setLatLng([lat, lon]);
           } else {
-            devicesRef.current[device_id] = L.circleMarker([lat, lon], {
-              radius: 6,
-              color: "red",
-            }).addTo(mapRef.current).bindPopup(`Device: ${device_id}`);
+            devicesRef.current[device_id] = L.circleMarker([lat, lon], { radius: 6, color: "red" })
+              .addTo(mapRef.current)
+              .bindPopup(`Device: ${device_id}`);
           }
         };
       }
@@ -85,7 +75,6 @@ function App() {
 
     initMap();
 
-    // Cleanup al desmontar componente
     return () => {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
@@ -99,17 +88,10 @@ function App() {
   }, []);
 
   const handleEnviar = () => {
-    if (!navigator.geolocation) {
-      alert("Geolocalización no soportada");
-      return;
-    }
+    if (!navigator.geolocation) return alert("Geolocalización no soportada");
 
     navigator.geolocation.getCurrentPosition(async (position) => {
-      const pos = {
-        device_id: "test123",
-        lat: position.coords.latitude,
-        lon: position.coords.longitude,
-      };
+      const pos = { device_id: "test123", lat: position.coords.latitude, lon: position.coords.longitude };
 
       try {
         const res = await enviarPosicion(pos);
@@ -129,15 +111,7 @@ function App() {
       <div id="map" style={{ height: "500px", border: "1px solid #ccc", borderRadius: "4px" }}></div>
       <button
         onClick={handleEnviar}
-        style={{
-          marginTop: "10px",
-          padding: "8px 12px",
-          backgroundColor: "#007bff",
-          color: "white",
-          border: "none",
-          borderRadius: "4px",
-          cursor: "pointer",
-        }}
+        style={{ marginTop: "10px", padding: "8px 12px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}
       >
         Enviar posición actual
       </button>

@@ -13,7 +13,8 @@ function App() {
 
   useEffect(() => {
     const initMap = async () => {
-      if (mapRef.current) {
+      // ✅ Evitar reinicialización
+      if (mapRef.current && mapRef.current._leaflet_id) {
         console.warn("🛑 El mapa ya está inicializado.");
         return;
       }
@@ -136,5 +137,4 @@ function App() {
 }
 
 export default App;
-
 

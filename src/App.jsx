@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { enviarPosicion, obtenerGeocerca, guardarGeocerca } from "./api";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -11,11 +11,11 @@ function App() {
   const drawnItemsRef = useRef(null);
   const [estado, setEstado] = useState(null);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const initMap = async () => {
       if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
+        console.warn("🛑 El mapa ya está inicializado.");
+        return;
       }
 
       const map = L.map("map").setView([40.4168, -3.7038], 15);
@@ -23,7 +23,7 @@ function App() {
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
-        attribution: '© <a href/openstreetmap.orgOpenStreetMap</a>',
+        attribution: '© https://openstreetmap.orgOpenStreetMap</a>',
       }).addTo(map);
 
       drawnItemsRef.current = new L.FeatureGroup().addTo(map);
@@ -34,7 +34,6 @@ function App() {
       });
       map.addControl(drawControl);
 
-      // Manejador para guardar geocerca
       map.on("draw:created", async (e) => {
         const layer = e.layer;
         drawnItemsRef.current.addLayer(layer);
@@ -54,7 +53,6 @@ function App() {
         }
       });
 
-      // Cargar geocerca desde backend
       const geojson = await obtenerGeocerca();
       if (geojson && geojson.coordinates?.length) {
         L.geoJSON(geojson, {
@@ -62,12 +60,9 @@ function App() {
         }).addTo(map);
       }
 
-      // EventSource para streaming de posiciones
       const evtSource = new EventSource("https://perimeter-prototype.onrender.com/stream");
 
       evtSource.onmessage = (e) => {
-        if (!mapRef.current) return;
-
         const data = JSON.parse(e.data);
         const { device_id, lat, lon } = data;
 
@@ -98,8 +93,6 @@ function App() {
         lat: position.coords.latitude,
         lon: position.coords.longitude,
       };
-
-      if (!mapRef.current) return;
 
       try {
         const res = await enviarPosicion(pos);

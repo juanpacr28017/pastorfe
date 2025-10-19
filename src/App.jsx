@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { enviarPosicion, obtenerGeocerca, guardarGeocerca } from "./api";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -11,14 +11,13 @@ function App() {
   const drawnItemsRef = useRef(null);
   const [estado, setEstado] = useState(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const mapContainer = document.getElementById("map");
+    if (mapContainer && mapContainer._leaflet_id) {
+        mapContainer._leaflet_id = null;
+        mapContainer.innerHTML = "";
+    }
     const initMap = async () => {
-
-const mapContainer = document.getElementById("map");
-if (mapContainer && mapContainer._leaflet_id) {
-  mapContainer.innerHTML = "";
-}
-
       // Inicializar mapa centrado en Madrid
       mapRef.current = L.map("map").setView([40.4168, -3.7038], 15);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {

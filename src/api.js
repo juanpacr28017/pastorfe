@@ -5,7 +5,7 @@ const API_URL = import.meta.env.VITE_API_URL || "https://perimeter-prototype.onr
  * Envía una posición al backend
  * pos = { device_id: string, lat: number, lon: number, user_id?: string }
  */
-async function enviarPosicion(pos) {
+export async function enviarPosicion(pos) {
   try {
     const res = await fetch(`${API_URL}/pos`, {
       method: "POST",
@@ -23,7 +23,7 @@ async function enviarPosicion(pos) {
 /**
  * Obtiene la geocerca del usuario
  */
-async function obtenerGeocerca(user_id = "default_user") {
+export async function obtenerGeocerca(user_id = "default_user") {
   try {
     const res = await fetch(`${API_URL}/get_geofence?user_id=${user_id}`);
     if (!res.ok) throw new Error(await res.text());
@@ -37,7 +37,7 @@ async function obtenerGeocerca(user_id = "default_user") {
 /**
  * Guarda una geocerca del usuario
  */
-async function guardarGeocerca(geojson, user_id = "default_user") {
+export async function guardarGeocerca(geojson, user_id = "default_user") {
   try {
     // Se envía el geojson con user_id
     const body = JSON.stringify({ ...geojson, user_id });
@@ -55,10 +55,3 @@ async function guardarGeocerca(geojson, user_id = "default_user") {
     return { success: false, message: "Error al guardar geocerca" };
   }
 }
-
-// Exportación usando CommonJS
-module.exports = {
-  enviarPosicion,
-  obtenerGeocerca,
-  guardarGeocerca,
-};

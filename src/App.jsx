@@ -9,15 +9,19 @@ const API_URL = import.meta.env.VITE_API_URL || "https://perimeter-prototype.onr
 
 function App() {
   const mapRef = useRef(null);
-  const markerRef = useRef(null);
-  const drawnItemsRef = useRef(null);
-  const devicesRef = useRef({});
-  const eventSourceRef = useRef(null);
+  const markerRef = useRef(null); // Marcador del navegador
+  const drawnItemsRef = useRef(null); // Grupo de dibujo
+  const devicesRef = useRef({}); // Marcadores de dispositivos simulados
+  const eventSourceRef = useRef(null); // SSE
   const [estado, setEstado] = useState(null);
 
   useEffect(() => {
-    // Si el mapa ya existe, no hacemos nada
+    // Evitar reinicializar mapa si ya existe
     if (mapRef.current) return;
+
+    // Reset del contenedor por si Leaflet detecta inicialización previa
+    const mapContainer = document.getElementById("map");
+    if (mapContainer._leaflet_id) mapContainer._leaflet_id = null;
 
     const initMap = async () => {
       mapRef.current = L.map("map").setView([40.4168, -3.7038], 15);
@@ -33,6 +37,7 @@ function App() {
         L.geoJSON(geojson, { style: { color: "green", fillOpacity: 0.3 } }).addTo(mapRef.current);
       }
 
+      // Grupo para dibujos
       drawnItemsRef.current = new L.FeatureGroup().addTo(mapRef.current);
 
       const drawControl = new L.Control.Draw({
@@ -41,13 +46,22 @@ function App() {
       });
       mapRef.current.addControl(drawControl);
 
+      // Evento al crear nueva geocerca
       mapRef.current.on(L.Draw.Event.CREATED, async (e) => {
         const layer = e.layer;
         drawnItemsRef.current.addLayer(layer);
         const geojson = layer.toGeoJSON().geometry;
+
         const res = await guardarGeocerca(geojson);
         if (res?.success !== false) {
           alert("✅ Geocerca guardada correctamente");
+
+          // Limpiar geocercas previas y dibujar la nueva
+          mapRef.current.eachLayer((lyr) => {
+            if (lyr.feature) mapRef.current.removeLayer(lyr);
+          });
+          L.geoJSON(geojson, { style: { color: "green", fillOpacity: 0.3 } }).addTo(mapRef.current);
+
         } else {
           alert("❌ Error al guardar geocerca");
         }
@@ -71,7 +85,9 @@ function App() {
             devicesRef.current[device_id] = L.circleMarker([lat, lon], {
               radius: 6,
               color: "red",
-            }).addTo(mapRef.current).bindPopup(`Device: ${device_id}`);
+            })
+              .addTo(mapRef.current)
+              .bindPopup(`Device: ${device_id}`);
           }
         };
       }
@@ -79,6 +95,7 @@ function App() {
 
     initMap();
 
+    // Cleanup SSE al desmontar
     return () => {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();

@@ -12,7 +12,12 @@ export const enviarPosicion = async (pos) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(pos),
     });
-    if (!res.ok) throw new Error(await res.text());
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText);
+    }
+
     return await res.json();
   } catch (err) {
     console.error("[API] Error enviarPosicion:", err);
@@ -21,12 +26,16 @@ export const enviarPosicion = async (pos) => {
 };
 
 /**
- * Obtiene la geocerca del usuario
+ * Obtiene la geocerca de un usuario
+ * @param {string} user_id - ID del usuario
  */
 export const obtenerGeocerca = async (user_id = "default_user") => {
   try {
     const res = await fetch(`${API_URL}/get_geofence?user_id=${user_id}`);
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText);
+    }
     return await res.json();
   } catch (err) {
     console.error("[API] Error obtenerGeocerca:", err);
@@ -35,22 +44,28 @@ export const obtenerGeocerca = async (user_id = "default_user") => {
 };
 
 /**
- * Guarda una geocerca del usuario
- * geojson = GeoJSON geometry
+ * Guarda una geocerca para un usuario
+ * @param {object} geojson - GeoJSON geometry
+ * @param {string} user_id - ID del usuario
  */
-export const guardarGeocerca = async (geojson) => {
+export const guardarGeocerca = async (geojson, user_id = "default_user") => {
   try {
+    const body = JSON.stringify({ geojson, user_id });
+
     const res = await fetch(`${API_URL}/set_geofence`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(geojson),
+      body,
     });
-    if (!res.ok) throw new Error(await res.text());
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText);
+    }
+
     return await res.json();
   } catch (err) {
     console.error("[API] Error guardarGeocerca:", err);
     return { success: false, message: "Error al guardar geocerca" };
   }
 };
-
-

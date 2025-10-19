@@ -8,20 +8,23 @@ import "leaflet-draw";
 const API_URL = import.meta.env.VITE_API_URL || "https://perimeter-prototype.onrender.com";
 
 function App() {
-  const mapRef = useRef(null);
-  const markerRef = useRef(null);
-  const drawnItemsRef = useRef(null);
-  const devicesRef = useRef({});
-  const eventSourceRef = useRef(null);
+  const mapRef = useRef(null);        // Referencia al mapa Leaflet
+  const markerRef = useRef(null);     // Marcador del navegador
+  const drawnItemsRef = useRef(null); // Grupo para geocercas dibujadas
+  const devicesRef = useRef({});      // Marcadores de dispositivos simulados
+  const eventSourceRef = useRef(null); // SSE
   const [estado, setEstado] = useState(null);
 
   useEffect(() => {
-    // Si ya existe un mapa, no hacemos nada
+    // ✅ Si el mapa ya existe, no hacemos nada
     if (mapRef.current) return;
 
+    let isMounted = true; // Flag para evitar actualizaciones después de desmontar
+
     const initMap = async () => {
-      // Inicializar mapa solo si no existe otro mapa en el div
-      if (!document.getElementById("map") || L.DomUtil.get("map")?.._leaflet_id) return;
+      // Evitar inicializar si el div ya tiene mapa
+      const mapContainer = document.getElementById("map");
+      if (!mapContainer || mapContainer._leaflet_id) return;
 
       mapRef.current = L.map("map").setView([40.4168, -3.7038], 15);
 
@@ -32,10 +35,11 @@ function App() {
 
       // Cargar geocerca
       const geojson = await obtenerGeocerca();
-      if (geojson && geojson.coordinates?.length) {
+      if (geojson && geojson.coordinates?.length && isMounted) {
         L.geoJSON(geojson, { style: { color: "green", fillOpacity: 0.3 } }).addTo(mapRef.current);
       }
 
+      // Grupo para dibujos
       drawnItemsRef.current = new L.FeatureGroup().addTo(mapRef.current);
 
       const drawControl = new L.Control.Draw({
@@ -45,6 +49,7 @@ function App() {
       mapRef.current.addControl(drawControl);
 
       mapRef.current.on(L.Draw.Event.CREATED, async (e) => {
+        if (!isMounted) return;
         const layer = e.layer;
         drawnItemsRef.current.addLayer(layer);
         const geojson = layer.toGeoJSON().geometry;
@@ -56,16 +61,17 @@ function App() {
         }
       });
 
+      // Marcador del navegador
       markerRef.current = L.circleMarker([40.4168, -3.7038], { radius: 8, color: "blue" }).addTo(mapRef.current);
 
       // SSE solo si no existe
       if (!eventSourceRef.current) {
         eventSourceRef.current = new EventSource(`${API_URL}/stream`);
         eventSourceRef.current.onmessage = (event) => {
+          if (!isMounted || !mapRef.current) return;
+
           const pos = JSON.parse(event.data);
           const { device_id, lat, lon } = pos;
-
-          if (!mapRef.current) return;
 
           if (devicesRef.current[device_id]) {
             devicesRef.current[device_id].setLatLng([lat, lon]);
@@ -81,7 +87,10 @@ function App() {
 
     initMap();
 
+    // Cleanup al desmontar
     return () => {
+      isMounted = false;
+
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
@@ -109,6 +118,7 @@ function App() {
       try {
         const res = await enviarPosicion(pos);
         setEstado(res.estado || "Posición enviada correctamente");
+
         if (markerRef.current) markerRef.current.setLatLng([pos.lat, pos.lon]);
         if (mapRef.current) mapRef.current.setView([pos.lat, pos.lon]);
       } catch (err) {

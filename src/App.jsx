@@ -16,7 +16,8 @@ function App() {
   const [estado, setEstado] = useState(null);
 
   useEffect(() => {
-    if (mapRef.current) return; // Evitar reinicializar mapa
+    // Evitar reinicializar mapa en hot reload
+    if (mapRef.current) return;
 
     const initMap = async () => {
       mapRef.current = L.map("map").setView([40.4168, -3.7038], 15);
@@ -44,11 +45,8 @@ function App() {
       mapRef.current.on(L.Draw.Event.CREATED, async (e) => {
         const layer = e.layer;
         drawnItemsRef.current.addLayer(layer);
-
-        // Guardar geocerca correctamente
         const geojson = layer.toGeoJSON().geometry;
-        const res = await guardarGeocerca(geojson, "default_user");
-
+        const res = await guardarGeocerca(geojson);
         if (res?.success !== false) {
           alert("✅ Geocerca guardada correctamente");
         } else {
@@ -138,4 +136,4 @@ function App() {
   );
 }
 
-export
+export default App;

@@ -5,77 +5,60 @@ const API_URL = import.meta.env.VITE_API_URL || "https://perimeter-prototype.onr
  * Envía una posición al backend
  * pos = { device_id: string, lat: number, lon: number, user_id?: string }
  */
-export const enviarPosicion = async (pos) => {
+async function enviarPosicion(pos) {
   try {
     const res = await fetch(`${API_URL}/pos`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(pos),
     });
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(errorText);
-    }
-
+    if (!res.ok) throw new Error(await res.text());
     return await res.json();
   } catch (err) {
     console.error("[API] Error enviarPosicion:", err);
     return { estado: "Error al enviar posición" };
   }
-};
+}
 
 /**
- * Obtiene la geocerca de un usuario
- * @param {string} user_id - ID del usuario
+ * Obtiene la geocerca del usuario
  */
-export const obtenerGeocerca = async (user_id = "default_user") => {
+async function obtenerGeocerca(user_id = "default_user") {
   try {
     const res = await fetch(`${API_URL}/get_geofence?user_id=${user_id}`);
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(errorText);
-    }
+    if (!res.ok) throw new Error(await res.text());
     return await res.json();
   } catch (err) {
     console.error("[API] Error obtenerGeocerca:", err);
     return null;
   }
-};
+}
 
 /**
- * Guarda una geocerca para un usuario
- * @param {object} geojson - GeoJSON geometry { type: "Polygon", coordinates: [...] }
- * @param {string} user_id - ID del usuario
+ * Guarda una geocerca del usuario
  */
-export const guardarGeocerca = async (geojson, user_id = "default_user") => {
+async function guardarGeocerca(geojson, user_id = "default_user") {
   try {
-    // Validar que sea un GeoJSON correcto
-    if (!geojson?.type || !geojson?.coordinates) {
-      throw new Error("GeoJSON inválido");
-    }
-
-    const body = {
-      type: geojson.type,
-      coordinates: geojson.coordinates,
-      user_id,
-      name: "default_geofence", // Nombre opcional
-    };
+    // Se envía el geojson con user_id
+    const body = JSON.stringify({ ...geojson, user_id });
 
     const res = await fetch(`${API_URL}/set_geofence`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body,
     });
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(errorText);
-    }
-
+    if (!res.ok) throw new Error(await res.text());
     return await res.json();
   } catch (err) {
     console.error("[API] Error guardarGeocerca:", err);
     return { success: false, message: "Error al guardar geocerca" };
   }
+}
+
+// Exportación usando CommonJS
+module.exports = {
+  enviarPosicion,
+  obtenerGeocerca,
+  guardarGeocerca,
 };

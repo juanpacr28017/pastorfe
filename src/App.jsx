@@ -7,18 +7,16 @@ import "leaflet-draw";
 
 function App() {
   const mapRef = useRef(null);
+  const mapaInicializado = useRef(false);
   const markersRef = useRef({});
   const drawnItemsRef = useRef(null);
   const [estado, setEstado] = useState(null);
 
   useEffect(() => {
-    const initMap = async () => {
-      // ✅ Si ya existe un mapa, eliminarlo correctamente
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
+    if (mapaInicializado.current) return;
+    mapaInicializado.current = true;
 
+    const initMap = async () => {
       const map = L.map("map").setView([40.4168, -3.7038], 15);
       mapRef.current = map;
 

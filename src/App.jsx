@@ -7,82 +7,88 @@ import "leaflet-draw";
 
 function App() {
   const mapRef = useRef(null);
-  const mapaInicializado = useRef(false);
   const markersRef = useRef({});
   const drawnItemsRef = useRef(null);
   const [estado, setEstado] = useState(null);
 
   useLayoutEffect(() => {
-    if (mapaInicializado.current) return;
-    mapaInicializado.current = true;
+    const mapContainer = document.getElementById("map");
 
-    const initMap = async () => {
-      // Limpia el contenedor si ya hay un mapa
-      if (mapRef.current) {
-        mapRef.current.remove();
+    // 🔧 Limpieza segura del contenedor antes de inicializar Leaflet
+    if (mapContainer && mapContainer._leaflet_id) {
+      mapContainer._leaflet_id = null;
+    }
+
+    const map = L.map("map").setView([40.4168, -3.7038], 15);
+    mapRef.current = map;
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap',
+    }).addTo(map);
+
+    drawnItemsRef.current = new L.FeatureGroup().addTo(map);
+
+    const drawControl = new L.Control.Draw({
+      draw: { polygon: true },
+      edit: { featureGroup: drawnItemsRef.current },
+    });
+    map.addControl(drawControl);
+
+    map.on("draw:created", async (e) => {
+      const layer = e.layer;
+      drawnItemsRef.current.addLayer(layer);
+
+      const geojson = layer.toGeoJSON();
+      const geofenceData = {
+        user_id: "default_user",
+        name: "geocerca_manual",
+        geometry: geojson.geometry,
+      };
+
+      try {
+        const res = await guardarGeocerca(geofenceData);
+        console.log("✅ Geocerca guardada:", res);
+      } catch (err) {
+        console.error("❌ Error al guardar geocerca:", err);
       }
+    });
 
-      const map = L.map("map").setView([40.4168, -3.7038], 15);
-      mapRef.current = map;
-
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap',
-      }).addTo(map);
-
-      drawnItemsRef.current = new L.FeatureGroup().addTo(map);
-
-      const drawControl = new L.Control.Draw({
-        draw: { polygon: true },
-        edit: { featureGroup: drawnItemsRef.current },
-      });
-      map.addControl(drawControl);
-
-      map.on("draw:created", async (e) => {
-        const layer = e.layer;
-        drawnItemsRef.current.addLayer(layer);
-
-        const geojson = layer.toGeoJSON();
-        const geofenceData = {
-          user_id: "default_user",
-          name: "geocerca_manual",
-          geometry: geojson.geometry,
-        };
-
-        try {
-          const res = await guardarGeocerca(geofenceData);
-          console.log("✅ Geocerca guardada:", res);
-        } catch (err) {
-          console.error("❌ Error al guardar geocerca:", err);
-        }
-      });
-
-      const geojson = await obtenerGeocerca();
+    // 🟢 Cargar geocerca existente
+    obtenerGeocerca().then((geojson) => {
       if (geojson && geojson.coordinates?.length) {
         L.geoJSON(geojson, {
           style: { color: "green", fillOpacity: 0.3 },
         }).addTo(map);
       }
+    });
 
-      const evtSource = new EventSource("https://perimeter-prototype.onrender.com/stream");
+    // 🔄 Escuchar posiciones en tiempo real
+    const evtSource = new EventSource("https://perimeter-prototype.onrender.com/stream");
 
-      evtSource.onmessage = (e) => {
-        const data = JSON.parse(e.data);
-        const { device_id, lat, lon } = data;
+    evtSource.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      const { device_id, lat, lon } = data;
 
-        if (!markersRef.current[device_id]) {
-          markersRef.current[device_id] = L.circleMarker([lat, lon], { radius: 8 }).addTo(mapRef.current);
-        } else {
-          markersRef.current[device_id].setLatLng([lat, lon]);
-        }
-      };
-
-      evtSource.onerror = (err) => {
-        console.error("❌ Error en SSE:", err);
-      };
+      if (!markersRef.current[device_id]) {
+        markersRef.current[device_id] = L.circleMarker([lat, lon], { radius: 8 }).addTo(mapRef.current);
+      } else {
+        markersRef.current[device_id].setLatLng([lat, lon]);
+      }
     };
 
-    initMap();
+    evtSource.onerror = (err) => {
+      console.error("❌ Error en SSE:", err);
+    };
+
+    // 🧹 Limpieza al desmontar el componente
+    return () => {
+      evtSource.close();
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
   }, []);
 
   const handleEnviar = () => {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { enviarPosicion, obtenerGeocerca, guardarGeocerca } from "./api";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -12,17 +12,22 @@ function App() {
   const drawnItemsRef = useRef(null);
   const [estado, setEstado] = useState(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (mapaInicializado.current) return;
     mapaInicializado.current = true;
 
     const initMap = async () => {
+      // Limpia el contenedor si ya hay un mapa
+      if (mapRef.current) {
+        mapRef.current.remove();
+      }
+
       const map = L.map("map").setView([40.4168, -3.7038], 15);
       mapRef.current = map;
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
-        attribution: '© https://openstreetmap.orgOpenStreetMap</a>',
+        attribution: '© OpenStreetMap',
       }).addTo(map);
 
       drawnItemsRef.current = new L.FeatureGroup().addTo(map);
@@ -135,4 +140,3 @@ function App() {
 }
 
 export default App;
-

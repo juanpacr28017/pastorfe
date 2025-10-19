@@ -7,53 +7,79 @@ import "leaflet-draw";
 
 function App() {
   const mapRef = useRef(null);
-  const markersRef = useRef({}); // Guardará los markers por device_id
+  const markersRef = useRef({});
   const drawnItemsRef = useRef(null);
   const [estado, setEstado] = useState(null);
 
   useLayoutEffect(() => {
-    const mapContainer = document.getElementById("map");
-    if (mapContainer && mapContainer._leaflet_id) {
-        mapContainer._leaflet_id = null;
-        mapContainer.innerHTML = "";
-    }
     const initMap = async () => {
-      // Inicializar mapa centrado en Madrid
-      mapRef.current = L.map("map").setView([40.4168, -3.7038], 15);
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+
+      const map = L.map("map").setView([40.4168, -3.7038], 15);
+      mapRef.current = map;
+
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
-        attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>',
-      }).addTo(mapRef.current);
+        attribution: '© <a href/openstreetmap.orgOpenStreetMap</a>',
+      }).addTo(map);
 
-      // Crear grupo de capas para dibujos
-      drawnItemsRef.current = new L.FeatureGroup().addTo(mapRef.current);
+      drawnItemsRef.current = new L.FeatureGroup().addTo(map);
 
-      // Control de dibujo (solo polígonos)
       const drawControl = new L.Control.Draw({
         draw: { polygon: true },
         edit: { featureGroup: drawnItemsRef.current },
       });
-      mapRef.current.addControl(drawControl);
+      map.addControl(drawControl);
+
+      // Manejador para guardar geocerca
+      map.on("draw:created", async (e) => {
+        const layer = e.layer;
+        drawnItemsRef.current.addLayer(layer);
+
+        const geojson = layer.toGeoJSON();
+        const geofenceData = {
+          user_id: "default_user",
+          name: "geocerca_manual",
+          geometry: geojson.geometry,
+        };
+
+        try {
+          const res = await guardarGeocerca(geofenceData);
+          console.log("✅ Geocerca guardada:", res);
+        } catch (err) {
+          console.error("❌ Error al guardar geocerca:", err);
+        }
+      });
 
       // Cargar geocerca desde backend
       const geojson = await obtenerGeocerca();
-      if (geojson) {
-        L.geoJSON(geojson, { style: { color: "green", fillOpacity: 0.3 } }).addTo(mapRef.current);
+      if (geojson && geojson.coordinates?.length) {
+        L.geoJSON(geojson, {
+          style: { color: "green", fillOpacity: 0.3 },
+        }).addTo(map);
       }
 
       // EventSource para streaming de posiciones
       const evtSource = new EventSource("https://perimeter-prototype.onrender.com/stream");
+
       evtSource.onmessage = (e) => {
+        if (!mapRef.current) return;
+
         const data = JSON.parse(e.data);
         const { device_id, lat, lon } = data;
-        console.log("Evento SSE recibido:", data);
 
-        // Crear o actualizar marcador
         if (!markersRef.current[device_id]) {
           markersRef.current[device_id] = L.circleMarker([lat, lon], { radius: 8 }).addTo(mapRef.current);
         } else {
           markersRef.current[device_id].setLatLng([lat, lon]);
         }
+      };
+
+      evtSource.onerror = (err) => {
+        console.error("❌ Error en SSE:", err);
       };
     };
 
@@ -73,11 +99,12 @@ function App() {
         lon: position.coords.longitude,
       };
 
+      if (!mapRef.current) return;
+
       try {
         const res = await enviarPosicion(pos);
-        setEstado(res.estado || "Posición enviada correctamente");
+        setEstado(res.estado ?? "Posición enviada correctamente");
 
-        // Actualizar marcador local
         if (!markersRef.current[pos.device_id]) {
           markersRef.current[pos.device_id] = L.circleMarker([pos.lat, pos.lon], { radius: 8 }).addTo(mapRef.current);
         } else {

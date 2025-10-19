@@ -11,23 +11,22 @@ function App() {
   const mapRef = useRef(null);        // Referencia al mapa Leaflet
   const markerRef = useRef(null);     // Marcador del navegador
   const drawnItemsRef = useRef(null); // Grupo para geocercas dibujadas
-  const devicesRef = useRef({});      // Marcadores de dispositivos simulados
+  const devicesRef = useRef({});      // Marcadores de dispositivos
   const eventSourceRef = useRef(null); // SSE
   const [estado, setEstado] = useState(null);
 
   useEffect(() => {
-    // ✅ Si el mapa ya existe, no hacemos nada
+    // Evitar inicializar mapa varias veces
     if (mapRef.current) return;
 
-    let isMounted = true; // Flag para evitar actualizaciones después de desmontar
+    let isMounted = true;
 
     const initMap = async () => {
-      // Evitar inicializar si el div ya tiene mapa
       const mapContainer = document.getElementById("map");
       if (!mapContainer || mapContainer._leaflet_id) return;
 
+      // Inicializar mapa
       mapRef.current = L.map("map").setView([40.4168, -3.7038], 15);
-
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>',
@@ -73,6 +72,13 @@ function App() {
           const pos = JSON.parse(event.data);
           const { device_id, lat, lon } = pos;
 
+          // Validar coordenadas
+          if (typeof lat !== "number" || typeof lon !== "number") {
+            console.warn("Coordenadas inválidas SSE:", pos);
+            return;
+          }
+
+          // Actualizar o crear marcador
           if (devicesRef.current[device_id]) {
             devicesRef.current[device_id].setLatLng([lat, lon]);
           } else {
@@ -82,15 +88,19 @@ function App() {
             }).addTo(mapRef.current).bindPopup(`Device: ${device_id}`);
           }
         };
+
+        eventSourceRef.current.onerror = (err) => {
+          console.error("SSE error:", err);
+          eventSourceRef.current.close();
+          eventSourceRef.current = null;
+        };
       }
     };
 
     initMap();
 
-    // Cleanup al desmontar
     return () => {
       isMounted = false;
-
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
@@ -152,3 +162,4 @@ function App() {
 }
 
 export default App;
+

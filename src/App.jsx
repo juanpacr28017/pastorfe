@@ -10,11 +10,10 @@ function App() {
   const markersRef = useRef({});
   const drawnItemsRef = useRef(null);
   const [estado, setEstado] = useState(null);
+  const [mensaje, setMensaje] = useState("");
 
   useLayoutEffect(() => {
     const mapContainer = document.getElementById("map");
-
-    // 🔧 Limpieza segura del contenedor antes de inicializar Leaflet
     if (mapContainer && mapContainer._leaflet_id) {
       mapContainer._leaflet_id = null;
     }
@@ -24,7 +23,7 @@ function App() {
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: '© OpenStreetMap',
+      attribution: "© OpenStreetMap",
     }).addTo(map);
 
     drawnItemsRef.current = new L.FeatureGroup().addTo(map);
@@ -35,8 +34,12 @@ function App() {
     });
     map.addControl(drawControl);
 
+    // 🟢 Cuando el usuario crea una nueva geocerca
     map.on("draw:created", async (e) => {
       const layer = e.layer;
+
+      // 🔄 Limpiar cualquier geocerca anterior
+      drawnItemsRef.current.clearLayers();
       drawnItemsRef.current.addLayer(layer);
 
       const geojson = layer.toGeoJSON();
@@ -49,12 +52,14 @@ function App() {
       try {
         const res = await guardarGeocerca(geofenceData);
         console.log("✅ Geocerca guardada:", res);
+        setMensaje("✅ Geocerca guardada correctamente");
       } catch (err) {
         console.error("❌ Error al guardar geocerca:", err);
+        setMensaje("❌ Error al guardar geocerca. Revisa la consola.");
       }
     });
 
-    // 🟢 Cargar geocerca existente
+    // 🟢 Cargar geocerca existente al iniciar
     obtenerGeocerca().then((geojson) => {
       if (geojson && geojson.coordinates?.length) {
         L.geoJSON(geojson, {
@@ -63,7 +68,7 @@ function App() {
       }
     });
 
-    // 🔄 Escuchar posiciones en tiempo real
+    // 🔄 Escuchar posiciones en tiempo real (SSE)
     const evtSource = new EventSource("https://perimeter-prototype.onrender.com/stream");
 
     evtSource.onmessage = (e) => {
@@ -125,7 +130,12 @@ function App() {
   return (
     <>
       <h4>Perimeter Dashboard (Prototype)</h4>
-      <div id="map" style={{ height: "500px", border: "1px solid #ccc", borderRadius: "4px" }}></div>
+
+      <div
+        id="map"
+        style={{ height: "500px", border: "1px solid #ccc", borderRadius: "4px" }}
+      ></div>
+
       <button
         onClick={handleEnviar}
         style={{
@@ -140,7 +150,9 @@ function App() {
       >
         Enviar posición actual
       </button>
+
       {estado && <p style={{ marginTop: "10px" }}>Estado: {estado}</p>}
+      {mensaje && <p style={{ marginTop: "10px", color: mensaje.startsWith("✅") ? "green" : "red" }}>{mensaje}</p>}
     </>
   );
 }

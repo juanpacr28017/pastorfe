@@ -1,5 +1,5 @@
 // src/api.js
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 /**
  * 🔹 Envía una posición al backend
@@ -146,5 +146,6 @@ export const guardarGeocerca = async (geojson, token) => {
     return { success: false, message: "Error al guardar geocerca" };
   }
 };
+
 
 

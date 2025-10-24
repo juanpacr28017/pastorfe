@@ -1,15 +1,10 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "./supabaseClient"; // ✅ Import centralizado
 import { enviarPosicion, obtenerGeocerca, guardarGeocerca } from "./api";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
 import "leaflet-draw";
-
-// 🔐 Configurar Supabase (usa tu URL y Anon Key)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 function App() {
   const mapRef = useRef(null);
@@ -144,10 +139,17 @@ function App() {
   // 🧑‍💻 Login o registro
   const handleLogin = async (e) => {
     e.preventDefault();
+
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      const { data: signupData, error: signupError } = await supabase.auth.signUp({ email, password });
+      // Intentar registrar si no existe
+      const { error: signupError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: window.location.origin },
+      });
+
       if (signupError) {
         alert("Error al crear cuenta: " + signupError.message);
       } else {
@@ -196,10 +198,7 @@ function App() {
 
       {user && (
         <>
-          <div
-            id="map"
-            style={{ height: "500px", border: "1px solid #ccc", borderRadius: "4px" }}
-          ></div>
+          <div id="map" style={{ height: "500px", border: "1px solid #ccc", borderRadius: "4px" }}></div>
 
           <button
             onClick={handleEnviar}

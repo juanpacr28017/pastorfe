@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { supabase } from "./supabaseClient"; // ✅ Cliente centralizado
+import { supabase } from "./supabaseClient"; // Cliente centralizado
 import { enviarPosicion, obtenerGeocerca, guardarGeocerca } from "./api";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -62,7 +62,7 @@ function App() {
 
       try {
         const { data } = await supabase.auth.getSession();
-        const token = data.session?.access_token; // ⚠️ RS256 token
+        const token = data.session?.access_token; // RS256 token
 
         const res = await guardarGeocerca(geofenceData, token);
         console.log("✅ Geocerca guardada:", res);
@@ -76,7 +76,7 @@ function App() {
     // 📍 Cargar geocerca actual
     (async () => {
       const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token; // ⚠️ RS256 token
+      const token = data.session?.access_token;
 
       const geojson = await obtenerGeocerca(token);
       if (geojson?.coordinates?.length) {
@@ -117,24 +117,33 @@ function App() {
     });
   };
 
-  // 🧑‍💻 Login o registro
+  // 🧑‍💻 Login o registro (RS256, sin legacy keys)
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
-      // Registrar con redirect al frontend
-      const { error: signupError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: window.location.origin }, // ⚠️ asegurarse de que es tu frontend
-      });
-      signupError
-        ? alert("Error al crear cuenta: " + signupError.message)
-        : alert("✅ Cuenta creada, revisa tu email para confirmar.");
-    } else {
-      setUser(data.user);
+      if (error) {
+        // Si falla, intentar registrar
+        const { data: signupData, error: signupError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: window.location.origin },
+        });
+
+        if (signupError) {
+          alert("❌ Error al crear cuenta: " + signupError.message);
+          return;
+        }
+
+        alert("✅ Cuenta creada, revisa tu email para confirmar.");
+      } else {
+        setUser(data.user);
+      }
+    } catch (err) {
+      console.error("Error login/signup:", err);
+      alert("❌ Error en login/registro, revisa la consola.");
     }
   };
 
@@ -164,7 +173,18 @@ function App() {
         <>
           <div id="map" style={{ height: "500px", border: "1px solid #ccc", borderRadius: "4px" }}></div>
 
-          <button onClick={handleEnviar} style={{ marginTop: "10px", padding: "8px 12px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>
+          <button
+            onClick={handleEnviar}
+            style={{
+              marginTop: "10px",
+              padding: "8px 12px",
+              backgroundColor: "#007bff",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+            }}
+          >
             Enviar posición actual
           </button>
 

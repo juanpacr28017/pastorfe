@@ -3,7 +3,7 @@ const API_URL = import.meta.env.VITE_API_URL || "https://perimeter-prototype.onr
 
 /**
  * Envía una posición al backend
- * pos = { device_id: string, lat: number, lon: number, user_id?: string }
+ * pos = { device_id: string, lat: number, lon: number }
  */
 export const enviarPosicion = async (pos) => {
   try {
@@ -12,6 +12,7 @@ export const enviarPosicion = async (pos) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(pos),
     });
+
     if (!res.ok) throw new Error(await res.text());
     return await res.json();
   } catch (err) {
@@ -21,11 +22,17 @@ export const enviarPosicion = async (pos) => {
 };
 
 /**
- * Obtiene la geocerca del usuario
+ * Obtiene la geocerca del usuario autenticado
+ * @param {string} token - JWT del usuario (supabase.auth.getSession().data.session.access_token)
  */
-export const obtenerGeocerca = async (user_id = "default_user") => {
+export const obtenerGeocerca = async (token) => {
   try {
-    const res = await fetch(`${API_URL}/get_geofence?user_id=${user_id}`);
+    const res = await fetch(`${API_URL}/get_geofence`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
     if (!res.ok) throw new Error(await res.text());
     return await res.json();
   } catch (err) {
@@ -35,16 +42,21 @@ export const obtenerGeocerca = async (user_id = "default_user") => {
 };
 
 /**
- * Guarda una geocerca del usuario
- * geojson = GeoJSON geometry
+ * Guarda una geocerca del usuario autenticado
+ * @param {object} geojson - GeoJSON geometry
+ * @param {string} token - JWT del usuario
  */
-export const guardarGeocerca = async (geojson) => {
+export const guardarGeocerca = async (geojson, token) => {
   try {
     const res = await fetch(`${API_URL}/set_geofence`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify(geojson),
     });
+
     if (!res.ok) throw new Error(await res.text());
     return await res.json();
   } catch (err) {
@@ -52,5 +64,3 @@ export const guardarGeocerca = async (geojson) => {
     return { success: false, message: "Error al guardar geocerca" };
   }
 };
-
-

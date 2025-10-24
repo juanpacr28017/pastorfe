@@ -162,7 +162,7 @@ function App() {
 
       {user && (
         <>
-          <div id="map" style={{ height: "500px", border: "1px solid #ccc', borderRadius: '4px' }}></div>
+          <div id="map" style={{ height: "500px", border: "1px solid #ccc", borderRadius: "4px" }}></div>
 
           <button onClick={handleEnviar} style={{ marginTop: "10px", padding: "8px 12px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>
             Enviar posición actual

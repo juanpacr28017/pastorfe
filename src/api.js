@@ -10,7 +10,7 @@ export const enviarPosicion = async (pos) => {
   try {
     const res = await fetch(`${API_URL}/pos`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" }, // este endpoint no requiere JWT
       body: JSON.stringify(pos),
     });
 
@@ -28,7 +28,7 @@ export const enviarPosicion = async (pos) => {
 
 /**
  * 🔹 Obtiene la geocerca del usuario autenticado
- * @param {string} token - JWT del usuario (supabase.auth.getSession().data.session.access_token)
+ * @param {string} token - JWT RS256 del usuario
  * @returns {Promise<object|null>}
  */
 export const obtenerGeocerca = async (token) => {
@@ -41,7 +41,7 @@ export const obtenerGeocerca = async (token) => {
     const res = await fetch(`${API_URL}/get_geofence`, {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${token}`, // header obligatorio para RS256
       },
     });
 
@@ -60,7 +60,7 @@ export const obtenerGeocerca = async (token) => {
 /**
  * 🔹 Guarda una geocerca del usuario autenticado
  * @param {object} geojson - Objeto con geometry (GeoJSON)
- * @param {string} token - JWT del usuario
+ * @param {string} token - JWT RS256 del usuario
  * @returns {Promise<object>}
  */
 export const guardarGeocerca = async (geojson, token) => {
@@ -74,7 +74,7 @@ export const guardarGeocerca = async (geojson, token) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${token}`, // header obligatorio para RS256
       },
       body: JSON.stringify(geojson),
     });
@@ -90,4 +90,5 @@ export const guardarGeocerca = async (geojson, token) => {
     return { success: false, message: "Error al guardar geocerca" };
   }
 };
+
 

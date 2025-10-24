@@ -1,9 +1,15 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { enviarPosicion, obtenerGeocerca, guardarGeocerca } from "./api";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
 import "leaflet-draw";
+
+// 🔐 Configurar Supabase (usa tu URL y Anon Key)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 function App() {
   const mapRef = useRef(null);
@@ -11,8 +17,29 @@ function App() {
   const drawnItemsRef = useRef(null);
   const [estado, setEstado] = useState(null);
   const [mensaje, setMensaje] = useState("");
+  const [user, setUser] = useState(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
+  // 🔄 Escuchar estado de sesión
   useLayoutEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) setUser(data.session.user);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  // 🧭 Inicializar mapa y lógica solo si hay usuario logueado
+  useLayoutEffect(() => {
+    if (!user) return;
+
     const mapContainer = document.getElementById("map");
     if (mapContainer && mapContainer._leaflet_id) {
       mapContainer._leaflet_id = null;
@@ -27,30 +54,30 @@ function App() {
     }).addTo(map);
 
     drawnItemsRef.current = new L.FeatureGroup().addTo(map);
-
     const drawControl = new L.Control.Draw({
       draw: { polygon: true },
       edit: { featureGroup: drawnItemsRef.current },
     });
     map.addControl(drawControl);
 
-    // 🟢 Cuando el usuario crea una nueva geocerca
+    // 📍 Crear geocerca
     map.on("draw:created", async (e) => {
       const layer = e.layer;
-
-      // 🔄 Limpiar cualquier geocerca anterior
       drawnItemsRef.current.clearLayers();
       drawnItemsRef.current.addLayer(layer);
 
       const geojson = layer.toGeoJSON();
       const geofenceData = {
-        user_id: "default_user",
         name: "geocerca_manual",
         geometry: geojson.geometry,
       };
 
       try {
-        const res = await guardarGeocerca(geofenceData);
+        // 🧩 Obtener token JWT
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+
+        const res = await guardarGeocerca(geofenceData, token);
         console.log("✅ Geocerca guardada:", res);
         setMensaje("✅ Geocerca guardada correctamente");
       } catch (err) {
@@ -59,22 +86,24 @@ function App() {
       }
     });
 
-    // 🟢 Cargar geocerca existente al iniciar
-    obtenerGeocerca().then((geojson) => {
+    // 📍 Cargar geocerca actual
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      const geojson = await obtenerGeocerca(token);
+
       if (geojson && geojson.coordinates?.length) {
         L.geoJSON(geojson, {
           style: { color: "green", fillOpacity: 0.3 },
         }).addTo(map);
       }
-    });
+    })();
 
-    // 🔄 Escuchar posiciones en tiempo real (SSE)
+    // 📡 Escuchar posiciones en tiempo real
     const evtSource = new EventSource("https://perimeter-prototype.onrender.com/stream");
-
     evtSource.onmessage = (e) => {
       const data = JSON.parse(e.data);
       const { device_id, lat, lon } = data;
-
       if (!markersRef.current[device_id]) {
         markersRef.current[device_id] = L.circleMarker([lat, lon], { radius: 8 }).addTo(mapRef.current);
       } else {
@@ -82,21 +111,14 @@ function App() {
       }
     };
 
-    evtSource.onerror = (err) => {
-      console.error("❌ Error en SSE:", err);
-    };
-
-    // 🧹 Limpieza al desmontar el componente
     return () => {
       evtSource.close();
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
+      if (mapRef.current) mapRef.current.remove();
     };
-  }, []);
+  }, [user]);
 
-  const handleEnviar = () => {
+  // 📍 Enviar posición actual
+  const handleEnviar = async () => {
     if (!navigator.geolocation) {
       alert("Geolocalización no soportada");
       return;
@@ -112,14 +134,6 @@ function App() {
       try {
         const res = await enviarPosicion(pos);
         setEstado(res.estado ?? "Posición enviada correctamente");
-
-        if (!markersRef.current[pos.device_id]) {
-          markersRef.current[pos.device_id] = L.circleMarker([pos.lat, pos.lon], { radius: 8 }).addTo(mapRef.current);
-        } else {
-          markersRef.current[pos.device_id].setLatLng([pos.lat, pos.lon]);
-        }
-
-        mapRef.current.setView([pos.lat, pos.lon]);
       } catch (err) {
         console.error("Error al enviar posición:", err);
         alert("Error al enviar posición");
@@ -127,32 +141,94 @@ function App() {
     });
   };
 
+  // 🧑‍💻 Login o registro
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      const { data: signupData, error: signupError } = await supabase.auth.signUp({ email, password });
+      if (signupError) {
+        alert("Error al crear cuenta: " + signupError.message);
+      } else {
+        alert("✅ Cuenta creada, revisa tu email para confirmar.");
+      }
+    } else {
+      setUser(data.user);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
+
   return (
     <>
-      <h4>Perimeter Dashboard (Prototype)</h4>
+      <h3>Perimeter Dashboard (Prototype)</h3>
 
-      <div
-        id="map"
-        style={{ height: "500px", border: "1px solid #ccc", borderRadius: "4px" }}
-      ></div>
+      {!user ? (
+        <form onSubmit={handleLogin} style={{ marginBottom: "20px" }}>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            style={{ marginRight: "8px" }}
+          />
+          <input
+            type="password"
+            placeholder="Contraseña"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            style={{ marginRight: "8px" }}
+          />
+          <button type="submit">Iniciar sesión / Registrarse</button>
+        </form>
+      ) : (
+        <div style={{ marginBottom: "10px" }}>
+          <p>👋 Bienvenido, {user.email}</p>
+          <button onClick={handleLogout}>Cerrar sesión</button>
+        </div>
+      )}
 
-      <button
-        onClick={handleEnviar}
-        style={{
-          marginTop: "10px",
-          padding: "8px 12px",
-          backgroundColor: "#007bff",
-          color: "white",
-          border: "none",
-          borderRadius: "4px",
-          cursor: "pointer",
-        }}
-      >
-        Enviar posición actual
-      </button>
+      {user && (
+        <>
+          <div
+            id="map"
+            style={{ height: "500px", border: "1px solid #ccc", borderRadius: "4px" }}
+          ></div>
 
-      {estado && <p style={{ marginTop: "10px" }}>Estado: {estado}</p>}
-      {mensaje && <p style={{ marginTop: "10px", color: mensaje.startsWith("✅") ? "green" : "red" }}>{mensaje}</p>}
+          <button
+            onClick={handleEnviar}
+            style={{
+              marginTop: "10px",
+              padding: "8px 12px",
+              backgroundColor: "#007bff",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+            }}
+          >
+            Enviar posición actual
+          </button>
+
+          {estado && <p style={{ marginTop: "10px" }}>Estado: {estado}</p>}
+          {mensaje && (
+            <p
+              style={{
+                marginTop: "10px",
+                color: mensaje.startsWith("✅") ? "green" : "red",
+              }}
+            >
+              {mensaje}
+            </p>
+          )}
+        </>
+      )}
     </>
   );
 }

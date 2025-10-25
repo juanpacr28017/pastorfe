@@ -8,7 +8,7 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [token, setToken] = useState(localStorage.getItem("jwt") || null);
+  const [token, setToken] = useState(null); // Inicialmente null
   const [polygon, setPolygon] = useState(null);
   const [positions, setPositions] = useState([]);
   const [streamConnected, setStreamConnected] = useState(false);
@@ -28,14 +28,10 @@ function App() {
 
       console.log("🧾 Respuesta auth:", data);
 
-      // Tomar el token correcto
-      const jwt =
-        data.access_token ||
-        data.session?.access_token ||
-        data.session?.access?.token;
-
+      const jwt = data.access_token || data.session?.access_token;
       if (!jwt) throw new Error("No se recibió token válido del backend");
 
+      // Guardamos el token recién recibido
       localStorage.setItem("jwt", jwt);
       setToken(jwt);
       alert("✅ Sesión iniciada correctamente");
@@ -55,7 +51,9 @@ function App() {
 
   // --- 🧭 CARGAR GEO-FENCE ---
   const loadGeofence = async () => {
-    if (!token) return console.warn("⚠️ No hay token, no se carga geofence");
+    if (!token) return;
+
+    console.log("📡 Cargando geofence con token:", token.slice(0, 30), "...");
 
     try {
       const res = await fetch(`${BACKEND_URL}/get_geofence`, {
@@ -65,11 +63,11 @@ function App() {
       if (res.status === 401) {
         console.error("❌ Token rechazado (401). Cerrando sesión.");
         handleLogout();
-        alert("⚠️ Sesión expirada. Vuelve a iniciar sesión.");
         return;
       }
 
       const data = await res.json();
+      console.log("🗺️ Geofence recibido:", data);
       setPolygon(data);
     } catch (err) {
       console.error("❌ Error cargando geofence:", err);
@@ -93,6 +91,8 @@ function App() {
       ],
     };
 
+    console.log("💾 Guardando geofence con token:", token.slice(0, 30), "...");
+
     try {
       const res = await fetch(`${BACKEND_URL}/set_geofence`, {
         method: "POST",
@@ -104,9 +104,8 @@ function App() {
       });
 
       if (res.status === 401) {
-        console.error("❌ Token rechazado (401) al guardar geofence. Cerrando sesión.");
+        console.error("❌ Token rechazado (401). Cerrando sesión.");
         handleLogout();
-        alert("⚠️ Sesión expirada. Vuelve a iniciar sesión.");
         return;
       }
 
@@ -257,5 +256,6 @@ function App() {
 }
 
 export default App;
+
 
 

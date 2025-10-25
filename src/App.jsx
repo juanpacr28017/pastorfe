@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import Map, { Source, Layer } from "react-map-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
 function App() {
   const [email, setEmail] = useState("");
@@ -106,7 +106,7 @@ function App() {
 
     eventSource.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      setPositions((prev) => [...prev.slice(-50), data]); // mantén las últimas 50
+      setPositions((prev) => [...prev.slice(-50), data]);
     };
 
     eventSource.onerror = () => {
@@ -177,14 +177,14 @@ function App() {
 
           <div className="w-[90vw] h-[60vh] mt-4 rounded-lg overflow-hidden">
             <Map
-              mapboxAccessToken={MAPBOX_TOKEN}
+              mapLib={maplibregl} // 👈 ESTA ES LA CLAVE
               initialViewState={{
                 longitude: -3.7038,
                 latitude: 40.4168,
                 zoom: 14,
               }}
               style={{ width: "100%", height: "100%" }}
-              mapStyle="mapbox://styles/mapbox/dark-v11"
+              mapStyle="https://demotiles.maplibre.org/style.json"
             >
               {polygon && polygon.coordinates && (
                 <Source id="geofence" type="geojson" data={polygon}>
@@ -232,4 +232,5 @@ function App() {
 }
 
 export default App;
+
 

@@ -14,11 +14,23 @@ function App() {
   const [streamConnected, setStreamConnected] = useState(false);
 
   // --- 🔐 Inicializar token limpio desde localStorage ---
- useEffect(() => {
-  localStorage.removeItem("jwt");
-  setToken(null);
+useEffect(() => {
+  const stored = localStorage.getItem("jwt");
+  if (stored) {
+    try {
+      const header = JSON.parse(atob(stored.split(".")[0]));
+      if (header.alg !== "ES256") {
+        localStorage.removeItem("jwt");
+        setToken(null);
+      } else {
+        setToken(stored);
+      }
+    } catch {
+      localStorage.removeItem("jwt");
+      setToken(null);
+    }
+  }
 }, []);
-
 
   // --- 🔐 LOGIN / REGISTRO ---
   const handleAuth = async (e) => {

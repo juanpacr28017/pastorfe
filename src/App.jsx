@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import Map, { Source, Layer } from "react-map-gl";
-import maplibregl from "maplibre-gl";
+import Map, { Source, Layer } from "react-map-gl/maplibre"; // 👈 Import correcto para MapLibre
 import "maplibre-gl/dist/maplibre-gl.css";
+import maplibregl from "maplibre-gl";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -177,7 +177,7 @@ function App() {
 
           <div className="w-[90vw] h-[60vh] mt-4 rounded-lg overflow-hidden">
             <Map
-              mapLib={maplibregl} // 👈 ESTA ES LA CLAVE
+              mapLib={maplibregl}
               initialViewState={{
                 longitude: -3.7038,
                 latitude: 40.4168,
@@ -232,5 +232,3 @@ function App() {
 }
 
 export default App;
-
-

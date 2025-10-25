@@ -8,12 +8,25 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [token, setToken] = useState(null); // Inicialmente null
+  const [token, setToken] = useState(null);
   const [polygon, setPolygon] = useState(null);
   const [positions, setPositions] = useState([]);
   const [streamConnected, setStreamConnected] = useState(false);
 
-  // --- 🔐 LOGIN O REGISTRO ---
+  // --- 🔐 Inicializar token limpio desde localStorage ---
+  useEffect(() => {
+    const stored = localStorage.getItem("jwt");
+    if (stored) {
+      try {
+        // Aquí podrías validar estructura del JWT si quieres
+        setToken(stored);
+      } catch {
+        localStorage.removeItem("jwt");
+      }
+    }
+  }, []);
+
+  // --- 🔐 LOGIN / REGISTRO ---
   const handleAuth = async (e) => {
     e.preventDefault();
     try {
@@ -28,10 +41,10 @@ function App() {
 
       console.log("🧾 Respuesta auth:", data);
 
-      const jwt = data.access_token
+      const jwt = data.access_token;
       if (!jwt) throw new Error("No se recibió token válido del backend");
 
-      // Guardamos el token recién recibido
+      // Guardar y usar token
       localStorage.setItem("jwt", jwt);
       setToken(jwt);
       alert("✅ Sesión iniciada correctamente");
@@ -51,7 +64,7 @@ function App() {
 
   // --- 🧭 CARGAR GEO-FENCE ---
   const loadGeofence = async () => {
-    if (!token) return;
+    if (!token) return console.warn("⚠️ No hay token, no se carga geofence");
 
     console.log("📡 Cargando geofence con token:", token.slice(0, 30), "...");
 
@@ -104,7 +117,7 @@ function App() {
       });
 
       if (res.status === 401) {
-        console.error("❌ Token rechazado (401). Cerrando sesión.");
+        console.error("❌ Token rechazado al guardar. Cerrando sesión.");
         handleLogout();
         return;
       }
@@ -147,7 +160,6 @@ function App() {
     if (token) loadGeofence();
   }, [token]);
 
-  // --- MAPA ---
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-6">
       <h1 className="text-3xl font-bold mb-4">🛰️ Perimeter Control</h1>
@@ -256,6 +268,7 @@ function App() {
 }
 
 export default App;
+
 
 
 

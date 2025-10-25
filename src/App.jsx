@@ -5,10 +5,13 @@ import maplibregl from "maplibre-gl";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
+// Limpiar token antiguo al cargar la app
+localStorage.removeItem("jwt");
+
 function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [token, setToken] = useState(localStorage.getItem("jwt") || null);
+  const [token, setToken] = useState(null); // ✅ no usamos token viejo
   const [polygon, setPolygon] = useState(null);
   const [positions, setPositions] = useState([]);
   const [streamConnected, setStreamConnected] = useState(false);
@@ -26,14 +29,8 @@ function App() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Error al autenticar");
 
-      console.log("🧾 Respuesta auth:", data);
-
-      // Garantizar que tomamos el token correcto
-      const jwt =
-        data.access_token ||
-        data.session?.access_token ||
-        data.session?.access?.token;
-
+      // Tomar siempre el token correcto
+      const jwt = data.access_token || data.session?.access_token;
       if (!jwt) throw new Error("No se recibió token válido del backend");
 
       localStorage.setItem("jwt", jwt);
@@ -47,7 +44,7 @@ function App() {
 
   // --- 📦 CERRAR SESIÓN ---
   const handleLogout = () => {
-    localStorage.removeItem("jwt");
+    localStorage.removeItem("jwt"); // ✅ limpia token
     setToken(null);
     setPolygon(null);
     setPositions([]);
@@ -57,8 +54,6 @@ function App() {
   const loadGeofence = async () => {
     if (!token) return console.warn("⚠️ No hay token, no se carga geofence");
 
-    console.log("📡 Cargando geofence con token:", token.slice(0, 30), "...");
-
     try {
       const res = await fetch(`${BACKEND_URL}/get_geofence`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -66,10 +61,11 @@ function App() {
 
       if (res.status === 401) {
         console.error("❌ Token rechazado (401).");
+        handleLogout(); // limpiar token si es inválido
+        return;
       }
 
       const data = await res.json();
-      console.log("🗺️ Geofence recibido:", data);
       setPolygon(data);
     } catch (err) {
       console.error("❌ Error cargando geofence:", err);
@@ -92,8 +88,6 @@ function App() {
       ],
     };
 
-    console.log("💾 Guardando geofence con token:", token.slice(0, 30), "...");
-
     try {
       const res = await fetch(`${BACKEND_URL}/set_geofence`, {
         method: "POST",
@@ -108,6 +102,9 @@ function App() {
       if (res.ok) {
         alert("🟢 Geocerca guardada correctamente");
         setPolygon(geometry);
+      } else if (res.status === 401) {
+        console.error("❌ Token rechazado (401) al guardar geofence.");
+        handleLogout();
       } else {
         alert(`❌ Error: ${data.detail || data.message}`);
       }
@@ -251,3 +248,4 @@ function App() {
 }
 
 export default App;
+

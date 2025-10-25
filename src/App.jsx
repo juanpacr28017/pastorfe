@@ -28,7 +28,7 @@ function App() {
 
       console.log("🧾 Respuesta auth:", data);
 
-      const jwt = data.access_token || data.session?.access_token;
+      const jwt = data.access_token
       if (!jwt) throw new Error("No se recibió token válido del backend");
 
       // Guardamos el token recién recibido

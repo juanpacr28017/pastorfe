@@ -13,12 +13,11 @@
     "@supabase/supabase-js": "^2.76.1",
     "leaflet": "^1.9.4",
     "leaflet-draw": "^1.0.4",
-    "mapbox-gl": "^2.15.0",
     "maplibre-gl": "^4.7.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-leaflet": "^5.0.0",
-    "react-map-gl": "^7.1.9"
+    "react-map-gl": "^8.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

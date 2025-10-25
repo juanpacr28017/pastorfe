@@ -5,13 +5,10 @@ import maplibregl from "maplibre-gl";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
-// Limpiar token antiguo al cargar la app
-localStorage.removeItem("jwt");
-
 function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [token, setToken] = useState(null); // ✅ no usamos token viejo
+  const [token, setToken] = useState(localStorage.getItem("jwt") || null);
   const [polygon, setPolygon] = useState(null);
   const [positions, setPositions] = useState([]);
   const [streamConnected, setStreamConnected] = useState(false);
@@ -29,8 +26,14 @@ function App() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Error al autenticar");
 
-      // Tomar siempre el token correcto
-      const jwt = data.access_token || data.session?.access_token;
+      console.log("🧾 Respuesta auth:", data);
+
+      // Tomar el token correcto
+      const jwt =
+        data.access_token ||
+        data.session?.access_token ||
+        data.session?.access?.token;
+
       if (!jwt) throw new Error("No se recibió token válido del backend");
 
       localStorage.setItem("jwt", jwt);
@@ -44,7 +47,7 @@ function App() {
 
   // --- 📦 CERRAR SESIÓN ---
   const handleLogout = () => {
-    localStorage.removeItem("jwt"); // ✅ limpia token
+    localStorage.removeItem("jwt");
     setToken(null);
     setPolygon(null);
     setPositions([]);
@@ -60,8 +63,9 @@ function App() {
       });
 
       if (res.status === 401) {
-        console.error("❌ Token rechazado (401).");
-        handleLogout(); // limpiar token si es inválido
+        console.error("❌ Token rechazado (401). Cerrando sesión.");
+        handleLogout();
+        alert("⚠️ Sesión expirada. Vuelve a iniciar sesión.");
         return;
       }
 
@@ -75,6 +79,7 @@ function App() {
   // --- 💾 GUARDAR GEO-FENCE DE EJEMPLO ---
   const saveGeofence = async () => {
     if (!token) return alert("Debes iniciar sesión primero");
+
     const geometry = {
       type: "Polygon",
       coordinates: [
@@ -98,13 +103,17 @@ function App() {
         body: JSON.stringify({ geometry }),
       });
 
+      if (res.status === 401) {
+        console.error("❌ Token rechazado (401) al guardar geofence. Cerrando sesión.");
+        handleLogout();
+        alert("⚠️ Sesión expirada. Vuelve a iniciar sesión.");
+        return;
+      }
+
       const data = await res.json();
       if (res.ok) {
         alert("🟢 Geocerca guardada correctamente");
         setPolygon(geometry);
-      } else if (res.status === 401) {
-        console.error("❌ Token rechazado (401) al guardar geofence.");
-        handleLogout();
       } else {
         alert(`❌ Error: ${data.detail || data.message}`);
       }
@@ -248,4 +257,5 @@ function App() {
 }
 
 export default App;
+
 

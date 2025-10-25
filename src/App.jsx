@@ -14,17 +14,11 @@ function App() {
   const [streamConnected, setStreamConnected] = useState(false);
 
   // --- 🔐 Inicializar token limpio desde localStorage ---
-  useEffect(() => {
-    const stored = localStorage.getItem("jwt");
-    if (stored) {
-      try {
-        // Aquí podrías validar estructura del JWT si quieres
-        setToken(stored);
-      } catch {
-        localStorage.removeItem("jwt");
-      }
-    }
-  }, []);
+ useEffect(() => {
+  localStorage.removeItem("jwt");
+  setToken(null);
+}, []);
+
 
   // --- 🔐 LOGIN / REGISTRO ---
   const handleAuth = async (e) => {

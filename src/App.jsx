@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Map, { Source, Layer } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import maplibregl from "maplibre-gl";
@@ -14,6 +14,8 @@ function App() {
   const [polygon, setPolygon] = useState(null);
   const [positions, setPositions] = useState([]);
   const [streamConnected, setStreamConnected] = useState(false);
+  const mapRef = useRef(null);
+  const drawRef = useRef(null);
 
   // --- 🔐 Inicializar token limpio desde localStorage ---
   useEffect(() => {
@@ -73,8 +75,6 @@ function App() {
   const loadGeofence = async () => {
     if (!token) return console.warn("⚠️ No hay token, no se carga geofence");
 
-    console.log("📡 Cargando geofence con token:", token.slice(0, 30), "...");
-
     try {
       const res = await fetch(`${BACKEND_URL}/get_geofence`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -110,8 +110,6 @@ function App() {
         ],
       ],
     };
-
-    console.log("💾 Guardando geofence con token:", token.slice(0, 30), "...");
 
     try {
       const res = await fetch(`${BACKEND_URL}/set_geofence`, {
@@ -167,6 +165,60 @@ function App() {
     if (token) loadGeofence();
   }, [token]);
 
+  // --- ✏️ HABILITAR DIBUJO EN EL MAPA ---
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const map = mapRef.current.getMap();
+    if (!map) return;
+
+    // ✅ Parche de compatibilidad MapLibre + MapboxDraw
+    MapboxDraw.constants.classes.CONTROL_BASE = "maplibregl-ctrl";
+    MapboxDraw.constants.classes.CONTROL_PREFIX = "maplibregl-ctrl-";
+
+    const draw = new MapboxDraw({
+      displayControlsDefault: false,
+      controls: { polygon: true, trash: true },
+      styles: [
+        // 🔹 Polígonos inactivos
+        {
+          id: "gl-draw-polygon-fill-inactive",
+          type: "fill",
+          filter: ["all", ["==", "active", "false"], ["==", "$type", "Polygon"]],
+          paint: { "fill-color": "#00FF88", "fill-opacity": 0.2 },
+        },
+        // 🔹 Borde del polígono
+        {
+          id: "gl-draw-polygon-stroke-inactive",
+          type: "line",
+          filter: ["all", ["==", "active", "false"], ["==", "$type", "Polygon"]],
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: { "line-color": "#00FF88", "line-width": 2, "line-dasharray": [0, 2] },
+        },
+        // 🔹 Polígono activo
+        {
+          id: "gl-draw-polygon-fill-active",
+          type: "fill",
+          filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "true"]],
+          paint: { "fill-color": "#00FF88", "fill-opacity": 0.3 },
+        },
+      ],
+    });
+
+    drawRef.current = draw;
+    map.addControl(draw);
+
+    map.on("draw.create", (e) => {
+      const geo = e.features[0].geometry;
+      console.log("🆕 Polígono dibujado:", geo);
+      setPolygon(geo);
+    });
+
+    return () => {
+      map.removeControl(draw);
+    };
+  }, []);
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-6">
       <h1 className="text-3xl font-bold mb-4">🛰️ Perimeter Control</h1>
@@ -220,6 +272,7 @@ function App() {
 
           <div className="w-[90vw] h-[60vh] mt-4 rounded-lg overflow-hidden">
             <Map
+              ref={mapRef}
               mapLib={maplibregl}
               initialViewState={{
                 longitude: -3.7038,
@@ -228,24 +281,6 @@ function App() {
               }}
               style={{ width: "100%", height: "100%" }}
               mapStyle="https://demotiles.maplibre.org/style.json"
-              onLoad={(e) => {
-                const map = e.target;
-                const draw = new MapboxDraw({
-                  displayControlsDefault: false,
-                  controls: {
-                    polygon: true,
-                    trash: true,
-                  },
-                });
-
-                map.addControl(draw);
-
-                map.on("draw.create", (evt) => {
-                  const geo = evt.features[0].geometry;
-                  console.log("🆕 Polígono dibujado:", geo);
-                  setPolygon(geo);
-                });
-              }}
             >
               {polygon && polygon.coordinates && (
                 <Source id="geofence" type="geojson" data={polygon}>
@@ -293,3 +328,4 @@ function App() {
 }
 
 export default App;
+

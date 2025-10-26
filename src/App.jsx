@@ -17,6 +17,7 @@ function App() {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
+  const isDrawingRef = useRef(false);
 
   // --- 🔐 Inicializar token limpio desde localStorage ---
   useEffect(() => {
@@ -43,9 +44,16 @@ function App() {
     }
   }, []);
 
+  // Sincronizar ref con estado
+  useEffect(() => {
+    isDrawingRef.current = isDrawing;
+  }, [isDrawing]);
+
   // --- 🗺️ INICIALIZAR MAPA ---
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
+
+    console.log("🗺️ Inicializando MapLibre GL...");
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
@@ -54,7 +62,12 @@ function App() {
       zoom: 14,
     });
 
+    // Añadir controles de navegación
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
     map.on("load", () => {
+      console.log("✅ Mapa cargado correctamente");
+
       // Añadir source para geofence
       map.addSource("geofence", {
         type: "geojson",
@@ -80,7 +93,7 @@ function App() {
         source: "geofence",
         paint: {
           "line-color": "#00FF88",
-          "line-width": 2,
+          "line-width": 3,
         },
       });
 
@@ -99,7 +112,7 @@ function App() {
         source: "drawing",
         paint: {
           "line-color": "#FFD700",
-          "line-width": 2,
+          "line-width": 3,
           "line-dasharray": [2, 2],
         },
       });
@@ -109,17 +122,26 @@ function App() {
         type: "circle",
         source: "drawing",
         paint: {
-          "circle-radius": 5,
+          "circle-radius": 6,
           "circle-color": "#FFD700",
+          "circle-stroke-color": "#FFF",
+          "circle-stroke-width": 2,
         },
       });
     });
 
-    // Handler para dibujo
+    // Handler para dibujo usando ref
     map.on("click", (e) => {
-      if (!isDrawing) return;
+      if (!isDrawingRef.current) return;
+      
       const coords = [e.lngLat.lng, e.lngLat.lat];
-      setDrawingCoords((prev) => [...prev, coords]);
+      console.log("📍 Punto añadido:", coords);
+      
+      setDrawingCoords((prev) => {
+        const newCoords = [...prev, coords];
+        console.log("Total puntos:", newCoords.length);
+        return newCoords;
+      });
     });
 
     mapRef.current = map;
@@ -130,7 +152,7 @@ function App() {
         mapRef.current = null;
       }
     };
-  }, [isDrawing]);
+  }, []);
 
   // --- 🔐 LOGIN / REGISTRO ---
   const handleAuth = async (e) => {
@@ -163,7 +185,6 @@ function App() {
     setToken(null);
     setPolygon(null);
     setPositions([]);
-    // Limpiar marcadores
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
   };
@@ -319,7 +340,7 @@ function App() {
 
     // Cambiar cursor
     if (map.getCanvas()) {
-      map.getCanvas().style.cursor = isDrawing ? "crosshair" : "";
+      map.getCanvas().style.cursor = isDrawing ? "crosshair" : "grab";
     }
   }, [drawingCoords, isDrawing]);
 
@@ -340,6 +361,7 @@ function App() {
       el.style.height = "12px";
       el.style.borderRadius = "50%";
       el.style.border = "2px solid white";
+      el.style.boxShadow = "0 0 4px rgba(0,0,0,0.5)";
 
       const marker = new maplibregl.Marker(el)
         .setLngLat([pos.lon, pos.lat])
@@ -351,6 +373,7 @@ function App() {
 
   // --- ✏️ DIBUJO DE POLÍGONOS ---
   const startDrawing = () => {
+    console.log("🖊️ Modo dibujo activado");
     setIsDrawing(true);
     setDrawingCoords([]);
     setPolygon(null);
@@ -367,11 +390,13 @@ function App() {
       type: "Polygon",
       coordinates: [closedCoords],
     });
+    console.log("✅ Polígono creado:", closedCoords);
     setIsDrawing(false);
     setDrawingCoords([]);
   };
 
   const cancelDrawing = () => {
+    console.log("❌ Dibujo cancelado");
     setIsDrawing(false);
     setDrawingCoords([]);
   };
@@ -409,20 +434,21 @@ function App() {
           <div className="flex gap-2 flex-wrap justify-center">
             <button
               onClick={handleLogout}
-              className="bg-red-600 hover:bg-red-700 p-2 rounded"
+              className="bg-red-600 hover:bg-red-700 p-2 rounded px-4"
             >
               Cerrar sesión
             </button>
             <button
               onClick={saveGeofence}
-              className="bg-green-600 hover:bg-green-700 p-2 rounded"
+              className="bg-green-600 hover:bg-green-700 p-2 rounded px-4"
+              disabled={!polygon}
             >
-              Guardar geocerca
+              💾 Guardar geocerca
             </button>
             {!isDrawing ? (
               <button
                 onClick={startDrawing}
-                className="bg-purple-600 hover:bg-purple-700 p-2 rounded"
+                className="bg-purple-600 hover:bg-purple-700 p-2 rounded px-4"
               >
                 ✏️ Dibujar polígono
               </button>
@@ -430,13 +456,13 @@ function App() {
               <>
                 <button
                   onClick={finishDrawing}
-                  className="bg-blue-600 hover:bg-blue-700 p-2 rounded"
+                  className="bg-blue-600 hover:bg-blue-700 p-2 rounded px-4"
                 >
-                  ✓ Finalizar polígono
+                  ✓ Finalizar
                 </button>
                 <button
                   onClick={cancelDrawing}
-                  className="bg-gray-600 hover:bg-gray-700 p-2 rounded"
+                  className="bg-gray-600 hover:bg-gray-700 p-2 rounded px-4"
                 >
                   ✕ Cancelar
                 </button>
@@ -444,14 +470,20 @@ function App() {
             )}
           </div>
 
+          {isDrawing && (
+            <div className="bg-yellow-800 text-yellow-100 px-4 py-2 rounded">
+              🖱️ Haz clic en el mapa para añadir puntos ({drawingCoords.length} puntos)
+            </div>
+          )}
+
           <p className="text-sm text-gray-400">
             {streamConnected ? "🟢 Streaming activo" : "🔴 Sin conexión al stream"}
-            {isDrawing && ` | 📍 Puntos: ${drawingCoords.length}`}
           </p>
 
           <div
             ref={mapContainerRef}
-            className="w-[90vw] h-[60vh] mt-4 rounded-lg overflow-hidden"
+            className="w-[90vw] h-[60vh] mt-4 rounded-lg overflow-hidden border-2 border-gray-700"
+            style={{ minHeight: "400px" }}
           />
         </div>
       )}

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-import Map, { Source, Layer } from "react-map-gl";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import MapboxDraw from "@mapbox/mapbox-gl-draw";

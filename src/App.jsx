@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -13,6 +13,7 @@ function App() {
   const [streamConnected, setStreamConnected] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawingCoords, setDrawingCoords] = useState([]);
+  const [mapReady, setMapReady] = useState(false);
   
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -49,9 +50,9 @@ function App() {
     isDrawingRef.current = isDrawing;
   }, [isDrawing]);
 
-  // --- 🗺️ INICIALIZAR MAPA ---
-  useLayoutEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return;
+  // --- 🗺️ INICIALIZAR MAPA (se ejecuta cuando hay token Y contenedor) ---
+  useEffect(() => {
+    if (!mapContainerRef.current || mapRef.current || !token) return;
 
     console.log("🗺️ Inicializando MapLibre GL...");
 
@@ -67,6 +68,7 @@ function App() {
 
     map.on("load", () => {
       console.log("✅ Mapa cargado correctamente");
+      setMapReady(true);
 
       // Añadir source para geofence
       map.addSource("geofence", {
@@ -150,9 +152,10 @@ function App() {
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
+        setMapReady(false);
       }
     };
-  }, []);
+  }, [token]);
 
   // --- 🔐 LOGIN / REGISTRO ---
   const handleAuth = async (e) => {
@@ -187,6 +190,13 @@ function App() {
     setPositions([]);
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
+    
+    // Destruir el mapa
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+      setMapReady(false);
+    }
   };
 
   // --- 🧭 CARGAR GEO-FENCE ---
@@ -282,7 +292,7 @@ function App() {
 
   // --- 🎨 ACTUALIZAR GEOFENCE EN MAPA ---
   useEffect(() => {
-    if (!mapRef.current || !polygon) return;
+    if (!mapRef.current || !polygon || !mapReady) return;
 
     const map = mapRef.current;
     const source = map.getSource("geofence");
@@ -293,11 +303,11 @@ function App() {
         geometry: polygon,
       });
     }
-  }, [polygon]);
+  }, [polygon, mapReady]);
 
   // --- 🎨 ACTUALIZAR DIBUJO EN MAPA ---
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapRef.current || !mapReady) return;
 
     const map = mapRef.current;
     const source = map.getSource("drawing");
@@ -342,11 +352,11 @@ function App() {
     if (map.getCanvas()) {
       map.getCanvas().style.cursor = isDrawing ? "crosshair" : "grab";
     }
-  }, [drawingCoords, isDrawing]);
+  }, [drawingCoords, isDrawing, mapReady]);
 
   // --- 🎨 ACTUALIZAR POSICIONES EN MAPA ---
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapRef.current || !mapReady) return;
 
     // Limpiar marcadores anteriores
     markersRef.current.forEach((marker) => marker.remove());
@@ -369,7 +379,7 @@ function App() {
 
       markersRef.current.push(marker);
     });
-  }, [positions]);
+  }, [positions, mapReady]);
 
   // --- ✏️ DIBUJO DE POLÍGONOS ---
   const startDrawing = () => {
@@ -449,6 +459,7 @@ function App() {
               <button
                 onClick={startDrawing}
                 className="bg-purple-600 hover:bg-purple-700 p-2 rounded px-4"
+                disabled={!mapReady}
               >
                 ✏️ Dibujar polígono
               </button>
@@ -470,7 +481,13 @@ function App() {
             )}
           </div>
 
-          {isDrawing && (
+          {!mapReady && (
+            <div className="bg-blue-800 text-blue-100 px-4 py-2 rounded">
+              ⏳ Cargando mapa...
+            </div>
+          )}
+
+          {isDrawing && mapReady && (
             <div className="bg-yellow-800 text-yellow-100 px-4 py-2 rounded">
               🖱️ Haz clic en el mapa para añadir puntos ({drawingCoords.length} puntos)
             </div>
@@ -482,7 +499,7 @@ function App() {
 
           <div
             ref={mapContainerRef}
-            className="w-[90vw] h-[60vh] mt-4 rounded-lg overflow-hidden border-2 border-gray-700"
+            className="w-[90vw] h-[60vh] mt-4 rounded-lg overflow-hidden border-2 border-gray-700 bg-gray-800"
             style={{ minHeight: "400px" }}
           />
         </div>

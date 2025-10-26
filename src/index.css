@@ -65,7 +65,7 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
-  #map {
+  map {
     width: 90vw;
     height: 60vh;
     min-height: 400px;

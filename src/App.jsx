@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import Map, { Source, Layer } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import maplibregl from "maplibre-gl";
+import MapboxDraw from "@mapbox/mapbox-gl-draw";
+import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
+
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -165,6 +168,42 @@ useEffect(() => {
   useEffect(() => {
     if (token) loadGeofence();
   }, [token]);
+
+  // --- ✏️ HABILITAR DIBUJO EN EL MAPA ---
+  useEffect(() => {
+  if (!maplibregl) return;
+
+  // Asegura que MapLibre esté disponible globalmente
+  if (!window.maplibregl) window.maplibregl = maplibregl;
+
+  const map = document.querySelector(".maplibregl-map")?._map;
+  if (!map) return;
+
+  // Crear el control de dibujo
+  const draw = new MapboxDraw({
+    displayControlsDefault: false,
+    controls: {
+      polygon: true,
+      trash: true,
+    },
+  });
+
+  // Agregarlo al mapa
+  map.addControl(draw);
+
+  // Escuchar el evento cuando terminas de dibujar
+  map.on("draw.create", (e) => {
+    const geo = e.features[0].geometry;
+    console.log("🆕 Polígono dibujado:", geo);
+    setPolygon(geo);
+  });
+
+  // Limpieza
+  return () => {
+    map.removeControl(draw);
+  };
+}, []);
+
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-6">

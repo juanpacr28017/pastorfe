@@ -1,52 +1,12 @@
 <!doctype html>
-<html>
+<html lang="es">
 <head>
-  <meta charset="utf-8">
-  <title>Perimeter Dashboard - Prototype</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <style> #map { height: 90vh; width: 100%; } </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Perimeter Control</title>
 </head>
 <body>
-  <h3>Perimeter Dashboard (Prototype)</h3>
-  <div id="map"></div>
   <div id="root"></div>
-  <script src="src/main.jsx" type="module"></script>
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script>
-    const map = L.map('map').setView([40.4168, -3.7038], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-    }).addTo(map);
-
-    // Example geofence polygon (lon,lat but Leaflet expects lat,lng)
-    const fenceCoords = [
-      [40.4180, -3.7050],
-      [40.4180, -3.7000],
-      [40.4140, -3.7000],
-      [40.4140, -3.7050]
-    ];
-    const polygon = L.polygon(fenceCoords, {color: 'green'}).addTo(map);
-
-    // marker
-    const marker = L.circleMarker([40.4168, -3.7038], {radius: 8}).addTo(map);
-
-    // Poll positions endpoint (you should implement an endpoint returning latest positions)
-    async function poll() {
-      try {
-        const res = await fetch('/api/latest_positions'); // implement proxy or CORS-enabled endpoint
-        const data = await res.json();
-        if (data && data.length) {
-          const p = data[0];
-          marker.setLatLng([p.lat, p.lon]);
-        }
-      } catch(e) {
-        // console.log('poll error', e)
-      }
-      setTimeout(poll, 3000);
-    }
-
-    // Start (for prototype you can update marker manually)
-    // poll();
-  </script>
+  <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

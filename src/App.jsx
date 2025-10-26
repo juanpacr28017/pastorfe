@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
-import Map, { Source, Layer } from "react-map-gl/maplibre";
-import "maplibre-gl/dist/maplibre-gl.css";
+import Map, { Source, Layer } from "react-map-gl";
 import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
+// Hacemos maplibregl accesible globalmente (importante para MapboxDraw)
+window.maplibregl = maplibregl;
 
 function App() {
   const [email, setEmail] = useState("");
@@ -15,7 +18,6 @@ function App() {
   const [positions, setPositions] = useState([]);
   const [streamConnected, setStreamConnected] = useState(false);
   const mapRef = useRef(null);
-  const drawRef = useRef(null);
 
   // --- 🔐 Inicializar token limpio desde localStorage ---
   useEffect(() => {
@@ -50,8 +52,8 @@ function App() {
       if (!res.ok) throw new Error(data.detail || "Error al autenticar");
 
       console.log("🧾 Respuesta auth:", data);
-
       const jwt = data.access_token;
+
       if (!jwt) throw new Error("No se recibió token válido del backend");
 
       localStorage.setItem("jwt", jwt);
@@ -75,6 +77,7 @@ function App() {
   const loadGeofence = async () => {
     if (!token) return console.warn("⚠️ No hay token, no se carga geofence");
 
+    console.log("📡 Cargando geofence con token:", token.slice(0, 30), "...");
     try {
       const res = await fetch(`${BACKEND_URL}/get_geofence`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -98,7 +101,7 @@ function App() {
   const saveGeofence = async () => {
     if (!token) return alert("Debes iniciar sesión primero");
 
-    const geometry = {
+    const geometry = polygon || {
       type: "Polygon",
       coordinates: [
         [
@@ -111,6 +114,7 @@ function App() {
       ],
     };
 
+    console.log("💾 Guardando geofence con token:", token.slice(0, 30), "...");
     try {
       const res = await fetch(`${BACKEND_URL}/set_geofence`, {
         method: "POST",
@@ -170,42 +174,14 @@ function App() {
     if (!mapRef.current) return;
 
     const map = mapRef.current.getMap();
-    if (!map) return;
-
-    // ✅ Parche de compatibilidad MapLibre + MapboxDraw
-    MapboxDraw.constants.classes.CONTROL_BASE = "maplibregl-ctrl";
-    MapboxDraw.constants.classes.CONTROL_PREFIX = "maplibregl-ctrl-";
-
     const draw = new MapboxDraw({
       displayControlsDefault: false,
-      controls: { polygon: true, trash: true },
-      styles: [
-        // 🔹 Polígonos inactivos
-        {
-          id: "gl-draw-polygon-fill-inactive",
-          type: "fill",
-          filter: ["all", ["==", "active", "false"], ["==", "$type", "Polygon"]],
-          paint: { "fill-color": "#00FF88", "fill-opacity": 0.2 },
-        },
-        // 🔹 Borde del polígono
-        {
-          id: "gl-draw-polygon-stroke-inactive",
-          type: "line",
-          filter: ["all", ["==", "active", "false"], ["==", "$type", "Polygon"]],
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": "#00FF88", "line-width": 2, "line-dasharray": [0, 2] },
-        },
-        // 🔹 Polígono activo
-        {
-          id: "gl-draw-polygon-fill-active",
-          type: "fill",
-          filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "true"]],
-          paint: { "fill-color": "#00FF88", "fill-opacity": 0.3 },
-        },
-      ],
+      controls: {
+        polygon: true,
+        trash: true,
+      },
     });
 
-    drawRef.current = draw;
     map.addControl(draw);
 
     map.on("draw.create", (e) => {
@@ -214,11 +190,10 @@ function App() {
       setPolygon(geo);
     });
 
-    return () => {
-      map.removeControl(draw);
-    };
+    return () => map.removeControl(draw);
   }, []);
 
+  // --- RENDER ---
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-6">
       <h1 className="text-3xl font-bold mb-4">🛰️ Perimeter Control</h1>
@@ -263,7 +238,7 @@ function App() {
             onClick={saveGeofence}
             className="bg-green-600 hover:bg-green-700 p-2 rounded"
           >
-            Guardar geocerca de ejemplo
+            Guardar geocerca
           </button>
 
           <p className="text-sm text-gray-400">
@@ -289,7 +264,7 @@ function App() {
                     type="fill"
                     paint={{
                       "fill-color": "#00FF88",
-                      "fill-opacity": 0.2,
+                      "fill-opacity": 0.3,
                     }}
                   />
                 </Source>
@@ -328,4 +303,3 @@ function App() {
 }
 
 export default App;
-

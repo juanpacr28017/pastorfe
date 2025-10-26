@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -50,7 +50,7 @@ function App() {
   }, [isDrawing]);
 
   // --- 🗺️ INICIALIZAR MAPA ---
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
     console.log("🗺️ Inicializando MapLibre GL...");

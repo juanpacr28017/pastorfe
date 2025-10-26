@@ -5,7 +5,6 @@ import maplibregl from "maplibre-gl";
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 
-
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 function App() {
@@ -17,23 +16,23 @@ function App() {
   const [streamConnected, setStreamConnected] = useState(false);
 
   // --- 🔐 Inicializar token limpio desde localStorage ---
-useEffect(() => {
-  const stored = localStorage.getItem("jwt");
-  if (stored) {
-    try {
-      const header = JSON.parse(atob(stored.split(".")[0]));
-      if (header.alg !== "ES256") {
+  useEffect(() => {
+    const stored = localStorage.getItem("jwt");
+    if (stored) {
+      try {
+        const header = JSON.parse(atob(stored.split(".")[0]));
+        if (header.alg !== "ES256") {
+          localStorage.removeItem("jwt");
+          setToken(null);
+        } else {
+          setToken(stored);
+        }
+      } catch {
         localStorage.removeItem("jwt");
         setToken(null);
-      } else {
-        setToken(stored);
       }
-    } catch {
-      localStorage.removeItem("jwt");
-      setToken(null);
     }
-  }
-}, []);
+  }, []);
 
   // --- 🔐 LOGIN / REGISTRO ---
   const handleAuth = async (e) => {
@@ -53,7 +52,6 @@ useEffect(() => {
       const jwt = data.access_token;
       if (!jwt) throw new Error("No se recibió token válido del backend");
 
-      // Guardar y usar token
       localStorage.setItem("jwt", jwt);
       setToken(jwt);
       alert("✅ Sesión iniciada correctamente");
@@ -169,42 +167,6 @@ useEffect(() => {
     if (token) loadGeofence();
   }, [token]);
 
-  // --- ✏️ HABILITAR DIBUJO EN EL MAPA ---
-  useEffect(() => {
-  if (!maplibregl) return;
-
-  // Asegura que MapLibre esté disponible globalmente
-  if (!window.maplibregl) window.maplibregl = maplibregl;
-
-  const map = document.querySelector(".maplibregl-map")?._map;
-  if (!map) return;
-
-  // Crear el control de dibujo
-  const draw = new MapboxDraw({
-    displayControlsDefault: false,
-    controls: {
-      polygon: true,
-      trash: true,
-    },
-  });
-
-  // Agregarlo al mapa
-  map.addControl(draw);
-
-  // Escuchar el evento cuando terminas de dibujar
-  map.on("draw.create", (e) => {
-    const geo = e.features[0].geometry;
-    console.log("🆕 Polígono dibujado:", geo);
-    setPolygon(geo);
-  });
-
-  // Limpieza
-  return () => {
-    map.removeControl(draw);
-  };
-}, []);
-
-
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-6">
       <h1 className="text-3xl font-bold mb-4">🛰️ Perimeter Control</h1>
@@ -266,6 +228,24 @@ useEffect(() => {
               }}
               style={{ width: "100%", height: "100%" }}
               mapStyle="https://demotiles.maplibre.org/style.json"
+              onLoad={(e) => {
+                const map = e.target;
+                const draw = new MapboxDraw({
+                  displayControlsDefault: false,
+                  controls: {
+                    polygon: true,
+                    trash: true,
+                  },
+                });
+
+                map.addControl(draw);
+
+                map.on("draw.create", (evt) => {
+                  const geo = evt.features[0].geometry;
+                  console.log("🆕 Polígono dibujado:", geo);
+                  setPolygon(geo);
+                });
+              }}
             >
               {polygon && polygon.coordinates && (
                 <Source id="geofence" type="geojson" data={polygon}>
@@ -313,7 +293,3 @@ useEffect(() => {
 }
 
 export default App;
-
-
-
-

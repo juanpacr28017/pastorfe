@@ -56,12 +56,32 @@ function App() {
 
     console.log("🗺️ Inicializando MapLibre GL...");
 
-    const map = new maplibregl.Map({
-      container: mapContainerRef.current,
-      style: "https://demotiles.maplibre.org/style.json",
-      center: [-3.7038, 40.4168],
-      zoom: 14,
-    });
+  const map = new maplibregl.Map({
+    container: mapContainerRef.current,
+    style: {
+      version: 8,
+      sources: {
+        osm: {
+          type: "raster",
+          tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+          tileSize: 256,
+          attribution: "© OpenStreetMap contributors"
+        }
+      },
+      layers: [
+        {
+          id: "osm",
+          type: "raster",
+          source: "osm",
+          minzoom: 0,
+          maxzoom: 19
+        }
+      ],
+      glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf"
+    },
+    center: [-3.7038, 40.4168],
+    zoom: 14,
+  });
 
     // Añadir controles de navegación
     map.addControl(new maplibregl.NavigationControl(), 'top-right');

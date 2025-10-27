@@ -368,23 +368,42 @@ function App() {
   useEffect(() => {
     if (!mapRef.current || !mapReady) return;
 
-    // Limpiar marcadores anteriores
+    // Agrupar posiciones por device_id para obtener solo la última de cada dispositivo
+    const latestPositions = {};
+    positions.forEach((pos) => {
+      if (!latestPositions[pos.device_id] || pos.ts > latestPositions[pos.device_id].ts) {
+        latestPositions[pos.device_id] = pos;
+      }
+    });
+
+    // Limpiar todos los marcadores actuales
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
 
-    // Añadir nuevos marcadores
-    positions.forEach((pos) => {
+    // Crear un marcador por cada dispositivo (solo última posición)
+    Object.values(latestPositions).forEach((pos) => {
       const el = document.createElement("div");
       el.className = "marker";
       el.style.backgroundColor = pos.estado === "inside" ? "#00FF00" : "#FF0000";
-      el.style.width = "12px";
-      el.style.height = "12px";
+      el.style.width = "14px";
+      el.style.height = "14px";
       el.style.borderRadius = "50%";
       el.style.border = "2px solid white";
-      el.style.boxShadow = "0 0 4px rgba(0,0,0,0.5)";
+      el.style.boxShadow = "0 0 6px rgba(0,0,0,0.7)";
+      el.style.transition = "all 0.3s ease";
+
+      // Tooltip con info del dispositivo
+      const popup = new maplibregl.Popup({ offset: 25 }).setHTML(
+        `<div style="color: black; padding: 4px;">
+          <strong>Device:</strong> ${pos.device_id}<br/>
+          <strong>Estado:</strong> ${pos.estado === "inside" ? "✅ Dentro" : "⚠️ Fuera"}<br/>
+          <strong>Coords:</strong> ${pos.lat.toFixed(5)}, ${pos.lon.toFixed(5)}
+        </div>`
+      );
 
       const marker = new maplibregl.Marker(el)
         .setLngLat([pos.lon, pos.lat])
+        .setPopup(popup)
         .addTo(mapRef.current);
 
       markersRef.current.push(marker);
@@ -524,3 +543,4 @@ function App() {
 }
 
 export default App;
+

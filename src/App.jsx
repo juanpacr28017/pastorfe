@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { auth, obtenerGeocerca, guardarGeocerca } from "./api";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -50,38 +51,38 @@ function App() {
     isDrawingRef.current = isDrawing;
   }, [isDrawing]);
 
-  // --- 🗺️ INICIALIZAR MAPA (se ejecuta cuando hay token Y contenedor) ---
+  // --- 🗺️ INICIALIZAR MAPA ---
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current || !token) return;
 
     console.log("🗺️ Inicializando MapLibre GL...");
 
-  const map = new maplibregl.Map({
-    container: mapContainerRef.current,
-    style: {
-      version: 8,
-      sources: {
-        osm: {
-          type: "raster",
-          tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-          tileSize: 256,
-          attribution: "© OpenStreetMap contributors"
-        }
+    const map = new maplibregl.Map({
+      container: mapContainerRef.current,
+      style: {
+        version: 8,
+        sources: {
+          osm: {
+            type: "raster",
+            tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+            tileSize: 256,
+            attribution: "© OpenStreetMap contributors"
+          }
+        },
+        layers: [
+          {
+            id: "osm",
+            type: "raster",
+            source: "osm",
+            minzoom: 0,
+            maxzoom: 19
+          }
+        ],
+        glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf"
       },
-      layers: [
-        {
-          id: "osm",
-          type: "raster",
-          source: "osm",
-          minzoom: 0,
-          maxzoom: 19
-        }
-      ],
-      glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf"
-    },
-    center: [-3.7038, 40.4168],
-    zoom: 14,
-  });
+      center: [-3.7038, 40.4168],
+      zoom: 14,
+    });
 
     // Añadir controles de navegación
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
@@ -177,29 +178,26 @@ function App() {
     };
   }, [token]);
 
-  // --- 🔐 LOGIN / REGISTRO ---
+  // --- 🔐 LOGIN / REGISTRO (usando api.js) ---
   const handleAuth = async (e) => {
     e.preventDefault();
-    try {
-      const res = await fetch(`${BACKEND_URL}/auth`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Error al autenticar");
-
-      const jwt = data.access_token;
-      if (!jwt) throw new Error("No se recibió token válido del backend");
-
-      localStorage.setItem("jwt", jwt);
-      setToken(jwt);
-      alert("✅ Sesión iniciada correctamente");
-    } catch (err) {
-      console.error("❌ Error autenticando:", err);
-      alert(`❌ Error: ${err.message}`);
+    
+    const data = await auth(email, password);
+    
+    if (data.error) {
+      alert(`❌ Error: ${data.error}`);
+      return;
     }
+
+    const jwt = data.access_token;
+    if (!jwt) {
+      alert("❌ No se recibió token válido del backend");
+      return;
+    }
+
+    localStorage.setItem("jwt", jwt);
+    setToken(jwt);
+    alert("✅ Sesión iniciada correctamente");
   };
 
   // --- 📦 CERRAR SESIÓN ---
@@ -219,31 +217,27 @@ function App() {
     }
   };
 
-  // --- 🧭 CARGAR GEO-FENCE ---
+  // --- 🧭 CARGAR GEO-FENCE (usando api.js) ---
   const loadGeofence = async () => {
     if (!token) return;
 
-    try {
-      const res = await fetch(`${BACKEND_URL}/get_geofence`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.status === 401) {
-        handleLogout();
-        return;
-      }
-
-      const data = await res.json();
-      console.log("🗺️ Geofence recibido:", data);
-      setPolygon(data);
-    } catch (err) {
-      console.error("❌ Error cargando geofence:", err);
+    const data = await obtenerGeocerca(token);
+    
+    if (!data) {
+      console.warn("⚠️ No se pudo cargar la geocerca");
+      return;
     }
+
+    console.log("🗺️ Geofence recibido:", data);
+    setPolygon(data);
   };
 
-  // --- 💾 GUARDAR GEO-FENCE ---
+  // --- 💾 GUARDAR GEO-FENCE (usando api.js) ---
   const saveGeofence = async () => {
-    if (!token) return alert("Debes iniciar sesión primero");
+    if (!token) {
+      alert("Debes iniciar sesión primero");
+      return;
+    }
 
     const geometry = polygon || {
       type: "Polygon",
@@ -258,31 +252,15 @@ function App() {
       ],
     };
 
-    try {
-      const res = await fetch(`${BACKEND_URL}/set_geofence`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ geometry }),
-      });
+    const result = await guardarGeocerca({ geometry }, token);
 
-      if (res.status === 401) {
-        handleLogout();
-        return;
-      }
-
-      const data = await res.json();
-      if (res.ok) {
-        alert("🟢 Geocerca guardada correctamente");
-        setPolygon(geometry);
-      } else {
-        alert(`❌ Error: ${data.detail || data.message}`);
-      }
-    } catch (err) {
-      console.error("❌ Error guardando geofence:", err);
+    if (result.success === false) {
+      alert(`❌ Error: ${result.message}`);
+      return;
     }
+
+    alert("🟢 Geocerca guardada correctamente");
+    setPolygon(geometry);
   };
 
   // --- 📡 STREAM DE POSICIONES ---

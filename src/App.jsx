@@ -6,6 +6,88 @@ import { useToast, ToastContainer } from "./Toast";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
+// Distancia de advertencia en metros (ajustable)
+const WARNING_DISTANCE = 50; // 50 metros del borde
+
+// Función para calcular la distancia de un punto al borde del polígono
+function distanceToPolygonEdge(point, polygon) {
+  if (!polygon || !polygon.coordinates || !polygon.coordinates[0]) {
+    return Infinity;
+  }
+
+  const coords = polygon.coordinates[0];
+  let minDistance = Infinity;
+
+  // Calcular distancia a cada segmento del polígono
+  for (let i = 0; i < coords.length - 1; i++) {
+    const p1 = coords[i];
+    const p2 = coords[i + 1];
+    
+    const distance = pointToSegmentDistance(
+      [point.lon, point.lat],
+      p1,
+      p2
+    );
+    
+    minDistance = Math.min(minDistance, distance);
+  }
+
+  return minDistance;
+}
+
+// Calcular distancia de un punto a un segmento de línea (en metros)
+function pointToSegmentDistance(point, segStart, segEnd) {
+  const [px, py] = point;
+  const [x1, y1] = segStart;
+  const [x2, y2] = segEnd;
+
+  const A = px - x1;
+  const B = py - y1;
+  const C = x2 - x1;
+  const D = y2 - y1;
+
+  const dot = A * C + B * D;
+  const lenSq = C * C + D * D;
+  let param = -1;
+
+  if (lenSq !== 0) param = dot / lenSq;
+
+  let xx, yy;
+
+  if (param < 0) {
+    xx = x1;
+    yy = y1;
+  } else if (param > 1) {
+    xx = x2;
+    yy = y2;
+  } else {
+    xx = x1 + param * C;
+    yy = y1 + param * D;
+  }
+
+  const dx = px - xx;
+  const dy = py - yy;
+
+  // Convertir de grados a metros (aproximado)
+  const metersPerDegree = 111320; // a nivel del ecuador
+  return Math.sqrt(dx * dx + dy * dy) * metersPerDegree;
+}
+
+// Determinar el estado del marcador según distancia
+function getMarkerState(pos, polygon, warningDistance) {
+  if (pos.estado === "outside") {
+    return { color: "#FF0000", label: "Fuera", emoji: "🔴" };
+  }
+
+  const distance = distanceToPolygonEdge(pos, polygon);
+
+  if (distance <= warningDistance) {
+    return { color: "#FFA500", label: "Cerca del borde", emoji: "⚠️" }; // Naranja
+  }
+
+  return { color: "#00FF00", label: "Dentro", emoji: "✅" }; // Verde
+}
+
 function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,6 +98,7 @@ function App() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawingCoords, setDrawingCoords] = useState([]);
   const [mapReady, setMapReady] = useState(false);
+  const [warningDistance, setWarningDistance] = useState(50); // Estado para distancia ajustable
   
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -382,9 +465,11 @@ function App() {
 
     // Crear un marcador por cada dispositivo (solo última posición)
     Object.values(latestPositions).forEach((pos) => {
+      const markerState = getMarkerState(pos, polygon, warningDistance);
+
       const el = document.createElement("div");
       el.className = "marker";
-      el.style.backgroundColor = pos.estado === "inside" ? "#00FF00" : "#FF0000";
+      el.style.backgroundColor = markerState.color;
       el.style.width = "14px";
       el.style.height = "14px";
       el.style.borderRadius = "50%";
@@ -392,11 +477,19 @@ function App() {
       el.style.boxShadow = "0 0 6px rgba(0,0,0,0.7)";
       el.style.transition = "all 0.3s ease";
 
+      // Calcular distancia al borde si está dentro
+      let distanceInfo = "";
+      if (pos.estado === "inside" && polygon) {
+        const distance = distanceToPolygonEdge(pos, polygon);
+        distanceInfo = `<strong>Distancia al borde:</strong> ${distance.toFixed(1)}m<br/>`;
+      }
+
       // Tooltip con info del dispositivo
       const popup = new maplibregl.Popup({ offset: 25 }).setHTML(
         `<div style="color: black; padding: 4px;">
           <strong>Device:</strong> ${pos.device_id}<br/>
-          <strong>Estado:</strong> ${pos.estado === "inside" ? "✅ Dentro" : "⚠️ Fuera"}<br/>
+          <strong>Estado:</strong> ${markerState.emoji} ${markerState.label}<br/>
+          ${distanceInfo}
           <strong>Coords:</strong> ${pos.lat.toFixed(5)}, ${pos.lon.toFixed(5)}
         </div>`
       );
@@ -408,7 +501,7 @@ function App() {
 
       markersRef.current.push(marker);
     });
-  }, [positions, mapReady]);
+  }, [positions, mapReady, polygon, warningDistance]);
 
   // --- ✏️ DIBUJO DE POLÍGONOS ---
   const startDrawing = () => {
@@ -531,6 +624,40 @@ function App() {
             {streamConnected ? "🟢 Streaming activo" : "🔴 Sin conexión al stream"}
           </p>
 
+          {/* Control de distancia de advertencia */}
+          <div className="bg-gray-800 p-4 rounded-lg w-full max-w-md">
+            <label className="block text-sm font-medium mb-2">
+              Distancia de advertencia: <span className="text-yellow-400">{warningDistance}m</span>
+            </label>
+            <input
+              type="range"
+              min="10"
+              max="200"
+              step="10"
+              value={warningDistance}
+              onChange={(e) => setWarningDistance(Number(e.target.value))}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              <span>10m</span>
+              <span>200m</span>
+            </div>
+            <div className="flex gap-2 mt-3 text-xs">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <span>Seguro</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                <span>Advertencia</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                <span>Fuera</span>
+              </div>
+            </div>
+          </div>
+
           <div
             ref={mapContainerRef}
             className="w-[90vw] h-[60vh] mt-4 rounded-lg overflow-hidden border-2 border-gray-700 bg-gray-800"
@@ -543,4 +670,5 @@ function App() {
 }
 
 export default App;
+
 

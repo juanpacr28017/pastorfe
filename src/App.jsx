@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { auth, obtenerGeocerca, guardarGeocerca } from "./api";
+import { useToast, ToastContainer } from "./Toast";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -20,6 +21,9 @@ function App() {
   const mapRef = useRef(null);
   const markersRef = useRef([]);
   const isDrawingRef = useRef(false);
+
+  // Hook de toasts
+  const toast = useToast();
 
   // --- 🔐 Inicializar token limpio desde localStorage ---
   useEffect(() => {
@@ -90,6 +94,7 @@ function App() {
     map.on("load", () => {
       console.log("✅ Mapa cargado correctamente");
       setMapReady(true);
+      toast.success("Mapa cargado correctamente");
 
       // Añadir source para geofence
       map.addSource("geofence", {
@@ -178,26 +183,27 @@ function App() {
     };
   }, [token]);
 
-  // --- 🔐 LOGIN / REGISTRO (usando api.js) ---
+  // --- 🔐 LOGIN / REGISTRO (usando api.js + toast) ---
   const handleAuth = async (e) => {
     e.preventDefault();
     
+    toast.info("Autenticando...");
     const data = await auth(email, password);
     
     if (data.error) {
-      alert(`❌ Error: ${data.error}`);
+      toast.error(`Error: ${data.error}`);
       return;
     }
 
     const jwt = data.access_token;
     if (!jwt) {
-      alert("❌ No se recibió token válido del backend");
+      toast.error("No se recibió token válido del backend");
       return;
     }
 
     localStorage.setItem("jwt", jwt);
     setToken(jwt);
-    alert("✅ Sesión iniciada correctamente");
+    toast.success("Sesión iniciada correctamente");
   };
 
   // --- 📦 CERRAR SESIÓN ---
@@ -215,27 +221,30 @@ function App() {
       mapRef.current = null;
       setMapReady(false);
     }
+
+    toast.info("Sesión cerrada");
   };
 
-  // --- 🧭 CARGAR GEO-FENCE (usando api.js) ---
+  // --- 🧭 CARGAR GEO-FENCE (usando api.js + toast) ---
   const loadGeofence = async () => {
     if (!token) return;
 
     const data = await obtenerGeocerca(token);
     
     if (!data) {
-      console.warn("⚠️ No se pudo cargar la geocerca");
+      toast.warning("No hay geocerca guardada");
       return;
     }
 
     console.log("🗺️ Geofence recibido:", data);
     setPolygon(data);
+    toast.success("Geocerca cargada");
   };
 
-  // --- 💾 GUARDAR GEO-FENCE (usando api.js) ---
+  // --- 💾 GUARDAR GEO-FENCE (usando api.js + toast) ---
   const saveGeofence = async () => {
     if (!token) {
-      alert("Debes iniciar sesión primero");
+      toast.error("Debes iniciar sesión primero");
       return;
     }
 
@@ -252,15 +261,16 @@ function App() {
       ],
     };
 
+    toast.info("Guardando geocerca...");
     const result = await guardarGeocerca({ geometry }, token);
 
     if (result.success === false) {
-      alert(`❌ Error: ${result.message}`);
+      toast.error(`Error: ${result.message}`);
       return;
     }
 
-    alert("🟢 Geocerca guardada correctamente");
     setPolygon(geometry);
+    toast.success("Geocerca guardada correctamente");
   };
 
   // --- 📡 STREAM DE POSICIONES ---
@@ -269,6 +279,7 @@ function App() {
 
     const eventSource = new EventSource(`${BACKEND_URL}/stream`);
     setStreamConnected(true);
+    toast.info("Conectado al stream de posiciones");
 
     eventSource.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -278,6 +289,7 @@ function App() {
     eventSource.onerror = () => {
       setStreamConnected(false);
       eventSource.close();
+      toast.warning("Stream desconectado");
     };
 
     return () => eventSource.close();
@@ -385,11 +397,12 @@ function App() {
     setIsDrawing(true);
     setDrawingCoords([]);
     setPolygon(null);
+    toast.info("Haz clic en el mapa para añadir puntos");
   };
 
   const finishDrawing = () => {
     if (drawingCoords.length < 3) {
-      alert("Necesitas al menos 3 puntos para crear un polígono");
+      toast.warning("Necesitas al menos 3 puntos para crear un polígono");
       return;
     }
 
@@ -401,17 +414,21 @@ function App() {
     console.log("✅ Polígono creado:", closedCoords);
     setIsDrawing(false);
     setDrawingCoords([]);
+    toast.success("Polígono creado correctamente");
   };
 
   const cancelDrawing = () => {
     console.log("❌ Dibujo cancelado");
     setIsDrawing(false);
     setDrawingCoords([]);
+    toast.info("Dibujo cancelado");
   };
 
   // --- RENDER ---
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-6">
+      <ToastContainer toasts={toast.toasts} removeToast={toast.removeToast} />
+      
       <h1 className="text-3xl font-bold mb-4">🛰️ Perimeter Control</h1>
 
       {!token ? (

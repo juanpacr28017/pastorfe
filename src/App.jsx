@@ -509,7 +509,7 @@ function App() {
           <strong>Coords:</strong> ${pos.lat.toFixed(5)}, ${pos.lon.toFixed(5)}
         </div>`
       );
-
+      console.log("🧭 Creando marcador:", pos);
       const marker = new maplibregl.Marker(el)
         .setLngLat([pos.lon, pos.lat])
         .setPopup(popup)

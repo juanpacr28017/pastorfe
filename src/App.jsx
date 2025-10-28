@@ -75,6 +75,13 @@ function pointToSegmentDistance(point, segStart, segEnd) {
 
 // Determinar el estado del marcador según distancia
 function getMarkerState(pos, polygon, warningDistance) {
+  console.log("🔍 getMarkerState llamada:", { 
+    device: pos.device_id, 
+    estado: pos.estado, 
+    hasPolygon: !!polygon,
+    warningDistance 
+  });
+
   if (pos.estado === "outside") {
     return { color: "#FF0000", label: "Fuera", emoji: "🔴" };
   }
@@ -84,12 +91,13 @@ function getMarkerState(pos, polygon, warningDistance) {
   }
 
   const distance = distanceToPolygonEdge(pos, polygon);
+  console.log(`📏 Distancia calculada: ${distance.toFixed(1)}m vs límite ${warningDistance}m`);
 
   if (distance <= warningDistance) {
-    return { color: "#FFA500", label: "Cerca del borde", emoji: "⚠️" };
+    return { color: "#FFA500", label: "Cerca del borde", emoji: "⚠️" }; // Naranja
   }
 
-  return { color: "#00FF00", label: "Dentro", emoji: "✅" };
+  return { color: "#00FF00", label: "Dentro", emoji: "✅" }; // Verde
 }
 
 function App() {
@@ -173,6 +181,10 @@ function App() {
       },
       center: [-3.7038, 40.4168],
       zoom: 14,
+      maxBounds: [
+        [-3.75, 40.35], // Southwest coordinates
+        [-3.65, 40.48]  // Northeast coordinates
+      ]
     });
 
     // Añadir controles de navegación
@@ -674,4 +686,5 @@ function App() {
 }
 
 export default App;
+
 

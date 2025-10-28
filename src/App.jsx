@@ -496,17 +496,6 @@ function App() {
         transition: all 0.3s ease;
       `;
 
-      // Efecto hover
-      el.addEventListener('mouseenter', () => {
-        el.style.transform = 'scale(1.3)';
-        el.style.boxShadow = '0 0 12px rgba(0,0,0,0.9)';
-      });
-      
-      el.addEventListener('mouseleave', () => {
-        el.style.transform = 'scale(1)';
-        el.style.boxShadow = '0 0 8px rgba(0,0,0,0.8)';
-      });
-
       // Calcular distancia al borde si está dentro
       let distanceInfo = "";
       if (pos.estado === "inside" && polygon) {
@@ -519,15 +508,37 @@ function App() {
       const popup = new maplibregl.Popup({ 
         offset: 25,
         closeButton: false,
-        closeOnClick: false
+        closeOnClick: false,
+        className: 'device-popup'
       }).setHTML(
-        `<div style="color: black; padding: 8px; font-size: 12px;">
-          <strong>Device:</strong> ${pos.device_id}<br/>
-          <strong>Estado:</strong> ${markerState.emoji} ${markerState.label}<br/>
+        `<div style="color: black; padding: 8px; font-size: 13px; min-width: 200px;">
+          <div style="font-size: 14px; font-weight: bold; margin-bottom: 6px; color: #333;">
+            📱 ${pos.device_id}
+          </div>
+          <div style="margin-bottom: 4px;">
+            <strong>Estado:</strong> ${markerState.emoji} ${markerState.label}
+          </div>
           ${distanceInfo}
-          <strong>Coords:</strong> ${pos.lat.toFixed(5)}, ${pos.lon.toFixed(5)}
+          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #ddd; font-size: 11px; color: #666;">
+            <strong>Lat:</strong> ${pos.lat.toFixed(6)}<br/>
+            <strong>Lon:</strong> ${pos.lon.toFixed(6)}
+          </div>
         </div>`
       );
+
+      // Mostrar popup al hover
+      el.addEventListener('mouseenter', () => {
+        popup.addTo(mapRef.current);
+        popup.setLngLat([pos.lon, pos.lat]);
+        el.style.transform = 'scale(1.15)';
+        el.style.zIndex = '1000';
+      });
+      
+      el.addEventListener('mouseleave', () => {
+        popup.remove();
+        el.style.transform = 'scale(1)';
+        el.style.zIndex = '1';
+      });
 
       // Crear marcador SIN elemento por defecto
       const marker = new maplibregl.Marker({
@@ -535,7 +546,6 @@ function App() {
         anchor: 'center'
       })
         .setLngLat([pos.lon, pos.lat])
-        .setPopup(popup)
         .addTo(mapRef.current);
 
       markersRef.current.push(marker);

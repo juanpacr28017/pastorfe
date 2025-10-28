@@ -481,7 +481,10 @@ function App() {
 
     // Crear un marcador por cada dispositivo (solo última posición)
     Object.values(latestPositions).forEach((pos) => {
+      console.log("📍 Procesando posición:", pos);
+      
       const markerState = getMarkerState(pos, polygon, warningDistance);
+      console.log("🎨 Estado del marcador:", markerState);
 
       // Crear elemento HTML personalizado para el marcador
       const el = document.createElement("div");
@@ -494,20 +497,65 @@ function App() {
         border: 3px solid white;
         box-shadow: 0 0 8px rgba(0,0,0,0.8);
         cursor: pointer;
-        position: relative;
+        transition: all 0.3s ease;
       `;
 
       // Calcular distancia al borde si está dentro
       let distanceInfo = "";
       if (pos.estado === "inside" && polygon) {
         const distance = distanceToPolygonEdge(pos, polygon);
-        distanceInfo = `<br/><strong>Distancia:</strong> ${distance.toFixed(1)}m`;
+        console.log(`📏 Distancia al borde para ${pos.device_id}: ${distance.toFixed(1)}m (Límite: ${warningDistance}m)`);
+        distanceInfo = `<strong>Distancia al borde:</strong> ${distance.toFixed(1)}m<br/>`;
       }
 
-      // Crear tooltip simple con título HTML nativo
-      el.title = `${pos.device_id} - ${markerState.label}${distanceInfo ? ' - ' + distanceInfo.replace(/<[^>]*>/g, '') : ''}`;
+      // Tooltip con info del dispositivo
+      const popup = new maplibregl.Popup({ 
+        offset: 25,
+        closeButton: false,
+        closeOnClick: false,
+        closeOnMove: false,
+        maxWidth: '250px',
+        className: 'device-popup'
+      }).setHTML(
+        `<div style="color: black; padding: 8px; font-size: 13px; min-width: 200px;">
+          <div style="font-size: 14px; font-weight: bold; margin-bottom: 6px; color: #333;">
+            📱 ${pos.device_id}
+          </div>
+          <div style="margin-bottom: 4px;">
+            <strong>Estado:</strong> ${markerState.emoji} ${markerState.label}
+          </div>
+          ${distanceInfo}
+          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #ddd; font-size: 11px; color: #666;">
+            <strong>Lat:</strong> ${pos.lat.toFixed(6)}<br/>
+            <strong>Lon:</strong> ${pos.lon.toFixed(6)}
+          </div>
+        </div>`
+      );
 
-      // Crear marcador
+      // Variable para controlar si el mouse está sobre el marcador o popup
+      let isHovering = false;
+
+      // Mostrar popup al hover
+      el.addEventListener('mouseenter', () => {
+        isHovering = true;
+        const markerElement = marker.getElement();
+        popup.setLngLat([pos.lon, pos.lat]).addTo(mapRef.current);
+        el.style.transform = 'scale(1.15)';
+        el.style.zIndex = '1000';
+      });
+      
+      el.addEventListener('mouseleave', () => {
+        isHovering = false;
+        setTimeout(() => {
+          if (!isHovering) {
+            popup.remove();
+            el.style.transform = 'scale(1)';
+            el.style.zIndex = '1';
+          }
+        }, 100);
+      });
+
+      // Crear marcador SIN elemento por defecto
       const marker = new maplibregl.Marker({
         element: el,
         anchor: 'center'

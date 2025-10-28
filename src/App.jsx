@@ -75,11 +75,23 @@ function pointToSegmentDistance(point, segStart, segEnd) {
 
 // Determinar el estado del marcador según distancia
 function getMarkerState(pos, polygon, warningDistance) {
+  console.log("🔍 getMarkerState llamada:", { 
+    device: pos.device_id, 
+    estado: pos.estado, 
+    hasPolygon: !!polygon,
+    warningDistance 
+  });
+
   if (pos.estado === "outside") {
     return { color: "#FF0000", label: "Fuera", emoji: "🔴" };
   }
 
+  if (!polygon) {
+    return { color: "#00FF00", label: "Dentro", emoji: "✅" };
+  }
+
   const distance = distanceToPolygonEdge(pos, polygon);
+  console.log(`📏 Distancia calculada: ${distance.toFixed(1)}m vs límite ${warningDistance}m`);
 
   if (distance <= warningDistance) {
     return { color: "#FFA500", label: "Cerca del borde", emoji: "⚠️" }; // Naranja
@@ -465,7 +477,10 @@ function App() {
 
     // Crear un marcador por cada dispositivo (solo última posición)
     Object.values(latestPositions).forEach((pos) => {
+      console.log("📍 Procesando posición:", pos);
+      
       const markerState = getMarkerState(pos, polygon, warningDistance);
+      console.log("🎨 Estado del marcador:", markerState);
 
       const el = document.createElement("div");
       el.className = "marker";
@@ -481,6 +496,7 @@ function App() {
       let distanceInfo = "";
       if (pos.estado === "inside" && polygon) {
         const distance = distanceToPolygonEdge(pos, polygon);
+        console.log(`📏 Distancia al borde para ${pos.device_id}: ${distance.toFixed(1)}m (Límite: ${warningDistance}m)`);
         distanceInfo = `<strong>Distancia al borde:</strong> ${distance.toFixed(1)}m<br/>`;
       }
 

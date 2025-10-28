@@ -181,6 +181,10 @@ function App() {
       },
       center: [-3.7038, 40.4168],
       zoom: 14,
+      maxBounds: [
+        [-3.75, 40.35], // Southwest coordinates
+        [-3.65, 40.48]  // Northeast coordinates
+      ]
     });
 
     // Añadir controles de navegación
@@ -509,6 +513,8 @@ function App() {
         offset: 25,
         closeButton: false,
         closeOnClick: false,
+        closeOnMove: false,
+        maxWidth: '250px',
         className: 'device-popup'
       }).setHTML(
         `<div style="color: black; padding: 8px; font-size: 13px; min-width: 200px;">
@@ -526,18 +532,27 @@ function App() {
         </div>`
       );
 
+      // Variable para controlar si el mouse está sobre el marcador o popup
+      let isHovering = false;
+
       // Mostrar popup al hover
       el.addEventListener('mouseenter', () => {
-        popup.addTo(mapRef.current);
-        popup.setLngLat([pos.lon, pos.lat]);
+        isHovering = true;
+        const markerElement = marker.getElement();
+        popup.setLngLat([pos.lon, pos.lat]).addTo(mapRef.current);
         el.style.transform = 'scale(1.15)';
         el.style.zIndex = '1000';
       });
       
       el.addEventListener('mouseleave', () => {
-        popup.remove();
-        el.style.transform = 'scale(1)';
-        el.style.zIndex = '1';
+        isHovering = false;
+        setTimeout(() => {
+          if (!isHovering) {
+            popup.remove();
+            el.style.transform = 'scale(1)';
+            el.style.zIndex = '1';
+          }
+        }, 100);
       });
 
       // Crear marcador SIN elemento por defecto
@@ -719,4 +734,5 @@ function App() {
 }
 
 export default App;
+
 

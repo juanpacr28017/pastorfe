@@ -199,7 +199,14 @@ function App() {
           features: [],
         },
       });
-
+      // 🧹 Eliminar capas con 'icon-image'
+      map.getStyle().layers.forEach((layer) => {
+        if (layer.type === "symbol" && layer.layout && layer.layout["icon-image"]) {
+          console.log("🗑️ Eliminando capa con icono:", layer.id);
+          map.removeLayer(layer.id);
+        }
+      });
+      
       map.addLayer({
         id: "geofence-fill",
         type: "fill",

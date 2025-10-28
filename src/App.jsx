@@ -75,13 +75,6 @@ function pointToSegmentDistance(point, segStart, segEnd) {
 
 // Determinar el estado del marcador según distancia
 function getMarkerState(pos, polygon, warningDistance) {
-  console.log("🔍 getMarkerState llamada:", { 
-    device: pos.device_id, 
-    estado: pos.estado, 
-    hasPolygon: !!polygon,
-    warningDistance 
-  });
-
   if (pos.estado === "outside") {
     return { color: "#FF0000", label: "Fuera", emoji: "🔴" };
   }
@@ -91,13 +84,12 @@ function getMarkerState(pos, polygon, warningDistance) {
   }
 
   const distance = distanceToPolygonEdge(pos, polygon);
-  console.log(`📏 Distancia calculada: ${distance.toFixed(1)}m vs límite ${warningDistance}m`);
 
   if (distance <= warningDistance) {
-    return { color: "#FFA500", label: "Cerca del borde", emoji: "⚠️" }; // Naranja
+    return { color: "#FFA500", label: "Cerca del borde", emoji: "⚠️" };
   }
 
-  return { color: "#00FF00", label: "Dentro", emoji: "✅" }; // Verde
+  return { color: "#00FF00", label: "Dentro", emoji: "✅" };
 }
 
 function App() {
@@ -181,10 +173,6 @@ function App() {
       },
       center: [-3.7038, 40.4168],
       zoom: 14,
-      maxBounds: [
-        [-3.75, 40.35], // Southwest coordinates
-        [-3.65, 40.48]  // Northeast coordinates
-      ]
     });
 
     // Añadir controles de navegación
@@ -481,10 +469,7 @@ function App() {
 
     // Crear un marcador por cada dispositivo (solo última posición)
     Object.values(latestPositions).forEach((pos) => {
-      console.log("📍 Procesando posición:", pos);
-      
       const markerState = getMarkerState(pos, polygon, warningDistance);
-      console.log("🎨 Estado del marcador:", markerState);
 
       // Crear elemento HTML personalizado para el marcador
       const el = document.createElement("div");
@@ -497,65 +482,20 @@ function App() {
         border: 3px solid white;
         box-shadow: 0 0 8px rgba(0,0,0,0.8);
         cursor: pointer;
-        transition: all 0.3s ease;
+        position: relative;
       `;
 
       // Calcular distancia al borde si está dentro
       let distanceInfo = "";
       if (pos.estado === "inside" && polygon) {
         const distance = distanceToPolygonEdge(pos, polygon);
-        console.log(`📏 Distancia al borde para ${pos.device_id}: ${distance.toFixed(1)}m (Límite: ${warningDistance}m)`);
-        distanceInfo = `<strong>Distancia al borde:</strong> ${distance.toFixed(1)}m<br/>`;
+        distanceInfo = `<br/><strong>Distancia:</strong> ${distance.toFixed(1)}m`;
       }
 
-      // Tooltip con info del dispositivo
-      const popup = new maplibregl.Popup({ 
-        offset: 25,
-        closeButton: false,
-        closeOnClick: false,
-        closeOnMove: false,
-        maxWidth: '250px',
-        className: 'device-popup'
-      }).setHTML(
-        `<div style="color: black; padding: 8px; font-size: 13px; min-width: 200px;">
-          <div style="font-size: 14px; font-weight: bold; margin-bottom: 6px; color: #333;">
-            📱 ${pos.device_id}
-          </div>
-          <div style="margin-bottom: 4px;">
-            <strong>Estado:</strong> ${markerState.emoji} ${markerState.label}
-          </div>
-          ${distanceInfo}
-          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #ddd; font-size: 11px; color: #666;">
-            <strong>Lat:</strong> ${pos.lat.toFixed(6)}<br/>
-            <strong>Lon:</strong> ${pos.lon.toFixed(6)}
-          </div>
-        </div>`
-      );
+      // Crear tooltip simple con título HTML nativo
+      el.title = `${pos.device_id} - ${markerState.label}${distanceInfo ? ' - ' + distanceInfo.replace(/<[^>]*>/g, '') : ''}`;
 
-      // Variable para controlar si el mouse está sobre el marcador o popup
-      let isHovering = false;
-
-      // Mostrar popup al hover
-      el.addEventListener('mouseenter', () => {
-        isHovering = true;
-        const markerElement = marker.getElement();
-        popup.setLngLat([pos.lon, pos.lat]).addTo(mapRef.current);
-        el.style.transform = 'scale(1.15)';
-        el.style.zIndex = '1000';
-      });
-      
-      el.addEventListener('mouseleave', () => {
-        isHovering = false;
-        setTimeout(() => {
-          if (!isHovering) {
-            popup.remove();
-            el.style.transform = 'scale(1)';
-            el.style.zIndex = '1';
-          }
-        }, 100);
-      });
-
-      // Crear marcador SIN elemento por defecto
+      // Crear marcador
       const marker = new maplibregl.Marker({
         element: el,
         anchor: 'center'

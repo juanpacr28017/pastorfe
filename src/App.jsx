@@ -199,7 +199,7 @@ function App() {
           features: [],
         },
       });
-      
+
       map.addLayer({
         id: "geofence-fill",
         type: "fill",
@@ -481,16 +481,31 @@ function App() {
       
       const markerState = getMarkerState(pos, polygon, warningDistance);
       console.log("🎨 Estado del marcador:", markerState);
-      console.log("🧭 Creando marcador:", pos);
+
+      // Crear elemento HTML personalizado para el marcador
       const el = document.createElement("div");
-      el.className = "marker";
-      el.style.backgroundColor = markerState.color;
-      el.style.width = "14px";
-      el.style.height = "14px";
-      el.style.borderRadius = "50%";
-      el.style.border = "2px solid white";
-      el.style.boxShadow = "0 0 6px rgba(0,0,0,0.7)";
-      el.style.transition = "all 0.3s ease";
+      el.className = "custom-marker";
+      el.style.cssText = `
+        background-color: ${markerState.color};
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 0 8px rgba(0,0,0,0.8);
+        cursor: pointer;
+        transition: all 0.3s ease;
+      `;
+
+      // Efecto hover
+      el.addEventListener('mouseenter', () => {
+        el.style.transform = 'scale(1.3)';
+        el.style.boxShadow = '0 0 12px rgba(0,0,0,0.9)';
+      });
+      
+      el.addEventListener('mouseleave', () => {
+        el.style.transform = 'scale(1)';
+        el.style.boxShadow = '0 0 8px rgba(0,0,0,0.8)';
+      });
 
       // Calcular distancia al borde si está dentro
       let distanceInfo = "";
@@ -501,16 +516,24 @@ function App() {
       }
 
       // Tooltip con info del dispositivo
-      const popup = new maplibregl.Popup({ offset: 25 }).setHTML(
-        `<div style="color: black; padding: 4px;">
+      const popup = new maplibregl.Popup({ 
+        offset: 25,
+        closeButton: false,
+        closeOnClick: false
+      }).setHTML(
+        `<div style="color: black; padding: 8px; font-size: 12px;">
           <strong>Device:</strong> ${pos.device_id}<br/>
           <strong>Estado:</strong> ${markerState.emoji} ${markerState.label}<br/>
           ${distanceInfo}
           <strong>Coords:</strong> ${pos.lat.toFixed(5)}, ${pos.lon.toFixed(5)}
         </div>`
       );
-      
-      const marker = new maplibregl.Marker(el)
+
+      // Crear marcador SIN elemento por defecto
+      const marker = new maplibregl.Marker({
+        element: el,
+        anchor: 'center'
+      })
         .setLngLat([pos.lon, pos.lat])
         .setPopup(popup)
         .addTo(mapRef.current);
@@ -686,5 +709,4 @@ function App() {
 }
 
 export default App;
-
 

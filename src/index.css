@@ -70,3 +70,27 @@ body {
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
 }
+
+/* Estilos para popups de dispositivos */
+.maplibregl-popup {
+  pointer-events: none;
+  z-index: 10;
+}
+
+.maplibregl-popup-content {
+  pointer-events: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.maplibregl-popup-anchor-top .maplibregl-popup-tip,
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+.maplibregl-popup-anchor-left .maplibregl-popup-tip,
+.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-color: white transparent transparent transparent;
+}
+
+/* Prevenir que el popup cause scroll del mapa */
+.device-popup {
+  max-width: none !important;
+}

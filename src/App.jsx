@@ -459,88 +459,63 @@ function App() {
     }
   }, [drawingCoords, isDrawing, mapReady]);
 
-  // --- 🎨 ACTUALIZAR POSICIONES EN MAPA ---
-  useEffect(() => {
-    if (!mapRef.current || !mapReady) return;
+  // Solo reemplaza la sección de ACTUALIZAR POSICIONES EN MAPA (líneas ~424-500)
+// Busca: // --- 🎨 ACTUALIZAR POSICIONES EN MAPA ---
 
-    // Agrupar posiciones por device_id para obtener solo la última de cada dispositivo
-    const latestPositions = {};
-    positions.forEach((pos) => {
-      if (!latestPositions[pos.device_id] || pos.ts > latestPositions[pos.device_id].ts) {
-        latestPositions[pos.device_id] = pos;
-      }
-    });
+useEffect(() => {
+  if (!mapRef.current || !mapReady) return;
 
-    // Limpiar todos los marcadores actuales
-    markersRef.current.forEach((marker) => marker.remove());
-    markersRef.current = [];
+  // Agrupar posiciones por device_id para obtener solo la última de cada dispositivo
+  const latestPositions = {};
+  positions.forEach((pos) => {
+    if (!latestPositions[pos.device_id] || pos.ts > latestPositions[pos.device_id].ts) {
+      latestPositions[pos.device_id] = pos;
+    }
+  });
 
-    // Crear un marcador por cada dispositivo (solo última posición)
-    Object.values(latestPositions).forEach((pos) => {
-      console.log("📍 Procesando posición:", pos);
-      
-      const markerState = getMarkerState(pos, polygon, warningDistance);
-      console.log("🎨 Estado del marcador:", markerState);
+  // Limpiar todos los marcadores actuales
+  markersRef.current.forEach((marker) => marker.remove());
+  markersRef.current = [];
 
-      // Crear elemento HTML personalizado para el marcador
-      const el = document.createElement("div");
-      el.className = "custom-marker";
-      el.style.cssText = `
-        background-color: ${markerState.color};
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        border: 3px solid white;
-        box-shadow: 0 0 8px rgba(0,0,0,0.8);
-        cursor: pointer;
-        transition: all 0.3s ease;
-      `;
+  // Crear un marcador por cada dispositivo (solo última posición)
+  Object.values(latestPositions).forEach((pos) => {
+    const markerState = getMarkerState(pos, polygon, warningDistance);
 
-      // Efecto hover
-      el.addEventListener('mouseenter', () => {
-        el.style.transform = 'scale(1.3)';
-        el.style.boxShadow = '0 0 12px rgba(0,0,0,0.9)';
-      });
-      
-      el.addEventListener('mouseleave', () => {
-        el.style.transform = 'scale(1)';
-        el.style.boxShadow = '0 0 8px rgba(0,0,0,0.8)';
-      });
+    // Crear elemento HTML personalizado para el marcador
+    const el = document.createElement("div");
+    el.className = "custom-marker";
+    el.style.cssText = `
+      background-color: ${markerState.color};
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 0 8px rgba(0,0,0,0.8);
+      cursor: pointer;
+      position: relative;
+    `;
 
-      // Calcular distancia al borde si está dentro
-      let distanceInfo = "";
-      if (pos.estado === "inside" && polygon) {
-        const distance = distanceToPolygonEdge(pos, polygon);
-        console.log(`📏 Distancia al borde para ${pos.device_id}: ${distance.toFixed(1)}m (Límite: ${warningDistance}m)`);
-        distanceInfo = `<strong>Distancia al borde:</strong> ${distance.toFixed(1)}m<br/>`;
-      }
+    // Calcular distancia al borde si está dentro
+    let distanceText = "";
+    if (pos.estado === "inside" && polygon) {
+      const distance = distanceToPolygonEdge(pos, polygon);
+      distanceText = ` - ${distance.toFixed(1)}m del borde`;
+    }
 
-      // Tooltip con info del dispositivo
-      const popup = new maplibregl.Popup({ 
-        offset: 25,
-        closeButton: false,
-        closeOnClick: false
-      }).setHTML(
-        `<div style="color: black; padding: 8px; font-size: 12px;">
-          <strong>Device:</strong> ${pos.device_id}<br/>
-          <strong>Estado:</strong> ${markerState.emoji} ${markerState.label}<br/>
-          ${distanceInfo}
-          <strong>Coords:</strong> ${pos.lat.toFixed(5)}, ${pos.lon.toFixed(5)}
-        </div>`
-      );
+    // Tooltip nativo HTML (simple y sin bugs)
+    el.title = `${pos.device_id} - ${markerState.label}${distanceText}`;
 
-      // Crear marcador SIN elemento por defecto
-      const marker = new maplibregl.Marker({
-        element: el,
-        anchor: 'center'
-      })
-        .setLngLat([pos.lon, pos.lat])
-        .setPopup(popup)
-        .addTo(mapRef.current);
+    // Crear marcador
+    const marker = new maplibregl.Marker({
+      element: el,
+      anchor: 'center'
+    })
+      .setLngLat([pos.lon, pos.lat])
+      .addTo(mapRef.current);
 
-      markersRef.current.push(marker);
-    });
-  }, [positions, mapReady, polygon, warningDistance]);
+    markersRef.current.push(marker);
+  });
+}, [positions, mapReady, polygon, warningDistance]);
 
   // --- ✏️ DIBUJO DE POLÍGONOS ---
   const startDrawing = () => {

@@ -459,63 +459,61 @@ function App() {
     }
   }, [drawingCoords, isDrawing, mapReady]);
 
-  // Solo reemplaza la sección de ACTUALIZAR POSICIONES EN MAPA (líneas ~424-500)
-// Busca: // --- 🎨 ACTUALIZAR POSICIONES EN MAPA ---
+  // --- 🎨 ACTUALIZAR POSICIONES EN MAPA ---
+  useEffect(() => {
+    if (!mapRef.current || !mapReady) return;
 
-useEffect(() => {
-  if (!mapRef.current || !mapReady) return;
+    // Agrupar posiciones por device_id para obtener solo la última de cada dispositivo
+    const latestPositions = {};
+    positions.forEach((pos) => {
+      if (!latestPositions[pos.device_id] || pos.ts > latestPositions[pos.device_id].ts) {
+        latestPositions[pos.device_id] = pos;
+      }
+    });
 
-  // Agrupar posiciones por device_id para obtener solo la última de cada dispositivo
-  const latestPositions = {};
-  positions.forEach((pos) => {
-    if (!latestPositions[pos.device_id] || pos.ts > latestPositions[pos.device_id].ts) {
-      latestPositions[pos.device_id] = pos;
-    }
-  });
+    // Limpiar todos los marcadores actuales
+    markersRef.current.forEach((marker) => marker.remove());
+    markersRef.current = [];
 
-  // Limpiar todos los marcadores actuales
-  markersRef.current.forEach((marker) => marker.remove());
-  markersRef.current = [];
+    // Crear un marcador por cada dispositivo (solo última posición)
+    Object.values(latestPositions).forEach((pos) => {
+      const markerState = getMarkerState(pos, polygon, warningDistance);
 
-  // Crear un marcador por cada dispositivo (solo última posición)
-  Object.values(latestPositions).forEach((pos) => {
-    const markerState = getMarkerState(pos, polygon, warningDistance);
+      // Crear elemento HTML personalizado para el marcador
+      const el = document.createElement("div");
+      el.className = "custom-marker";
+      el.style.cssText = `
+        background-color: ${markerState.color};
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 0 8px rgba(0,0,0,0.8);
+        cursor: pointer;
+        position: relative;
+      `;
 
-    // Crear elemento HTML personalizado para el marcador
-    const el = document.createElement("div");
-    el.className = "custom-marker";
-    el.style.cssText = `
-      background-color: ${markerState.color};
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      border: 3px solid white;
-      box-shadow: 0 0 8px rgba(0,0,0,0.8);
-      cursor: pointer;
-      position: relative;
-    `;
+      // Calcular distancia al borde si está dentro
+      let distanceInfo = "";
+      if (pos.estado === "inside" && polygon) {
+        const distance = distanceToPolygonEdge(pos, polygon);
+        distanceInfo = `<br/><strong>Distancia:</strong> ${distance.toFixed(1)}m`;
+      }
 
-    // Calcular distancia al borde si está dentro
-    let distanceText = "";
-    if (pos.estado === "inside" && polygon) {
-      const distance = distanceToPolygonEdge(pos, polygon);
-      distanceText = ` - ${distance.toFixed(1)}m del borde`;
-    }
+      // Crear tooltip simple con título HTML nativo
+      el.title = `${pos.device_id} - ${markerState.label}${distanceInfo ? ' - ' + distanceInfo.replace(/<[^>]*>/g, '') : ''}`;
 
-    // Tooltip nativo HTML (simple y sin bugs)
-    el.title = `${pos.device_id} - ${markerState.label}${distanceText}`;
+      // Crear marcador
+      const marker = new maplibregl.Marker({
+        element: el,
+        anchor: 'center'
+      })
+        .setLngLat([pos.lon, pos.lat])
+        .addTo(mapRef.current);
 
-    // Crear marcador
-    const marker = new maplibregl.Marker({
-      element: el,
-      anchor: 'center'
-    })
-      .setLngLat([pos.lon, pos.lat])
-      .addTo(mapRef.current);
-
-    markersRef.current.push(marker);
-  });
-}, [positions, mapReady, polygon, warningDistance]);
+      markersRef.current.push(marker);
+    });
+  }, [positions, mapReady, polygon, warningDistance]);
 
   // --- ✏️ DIBUJO DE POLÍGONOS ---
   const startDrawing = () => {
@@ -684,4 +682,3 @@ useEffect(() => {
 }
 
 export default App;
-

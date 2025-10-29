@@ -462,7 +462,7 @@ function App() {
   // --- 🎨 ACTUALIZAR POSICIONES EN MAPA ---
   useEffect(() => {
     if (!mapRef.current || !mapReady) return;
-
+  
     // Agrupar posiciones por device_id para obtener solo la última de cada dispositivo
     const latestPositions = {};
     positions.forEach((pos) => {

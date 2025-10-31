@@ -459,7 +459,9 @@ function App() {
     }
   }, [drawingCoords, isDrawing, mapReady]);
 
-  // --- 🎨 ACTUALIZAR POSICIONES EN MAPA ---
+  // Reemplaza la sección completa de ACTUALIZAR POSICIONES EN MAPA
+
+  // --- 🎨 ACTUALIZAR POSICIONES EN MAPA (OPTIMIZADO) ---
   useEffect(() => {
     if (!mapRef.current || !mapReady) return;
 
@@ -471,48 +473,97 @@ function App() {
       }
     });
 
-    // Limpiar todos los marcadores actuales
-    markersRef.current.forEach((marker) => marker.remove());
-    markersRef.current = [];
-
-    // Crear un marcador por cada dispositivo (solo última posición)
-    Object.values(latestPositions).forEach((pos) => {
-      const markerState = getMarkerState(pos, polygon, warningDistance);
-
-      // Crear elemento HTML personalizado para el marcador
-      const el = document.createElement("div");
-      el.className = "custom-marker";
-      el.style.cssText = `
-        background-color: ${markerState.color};
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        border: 3px solid white;
-        box-shadow: 0 0 8px rgba(0,0,0,0.8);
-        cursor: pointer;
-        position: relative;
-      `;
-
-      // Calcular distancia al borde si está dentro
-      let distanceInfo = "";
-      if (pos.estado === "inside" && polygon) {
-        const distance = distanceToPolygonEdge(pos, polygon);
-        distanceInfo = `<br/><strong>Distancia:</strong> ${distance.toFixed(1)}m`;
+    // Crear un map de marcadores existentes por device_id
+    const existingMarkers = new Map();
+    markersRef.current.forEach((markerData) => {
+      if (markerData && markerData.deviceId) {
+        existingMarkers.set(markerData.deviceId, markerData);
       }
-
-      // Crear tooltip simple con título HTML nativo
-      el.title = `${pos.device_id} - ${markerState.label}${distanceInfo ? ' - ' + distanceInfo.replace(/<[^>]*>/g, '') : ''}`;
-
-      // Crear marcador
-      const marker = new maplibregl.Marker({
-        element: el,
-        anchor: 'center'
-      })
-        .setLngLat([pos.lon, pos.lat])
-        .addTo(mapRef.current);
-
-      markersRef.current.push(marker);
     });
+
+    const newMarkers = [];
+
+    // Actualizar o crear marcadores
+    Object.values(latestPositions).forEach((pos) => {
+      const existing = existingMarkers.get(pos.device_id);
+      
+      if (existing) {
+        // ACTUALIZAR marcador existente (mucho más eficiente)
+        const markerState = getMarkerState(pos, polygon, warningDistance);
+        
+        // Solo actualizar si cambió la posición o el color
+        const currentLngLat = existing.marker.getLngLat();
+        const posChanged = currentLngLat.lng !== pos.lon || currentLngLat.lat !== pos.lat;
+        const colorChanged = existing.color !== markerState.color;
+        
+        if (posChanged) {
+          existing.marker.setLngLat([pos.lon, pos.lat]);
+        }
+        
+        if (colorChanged) {
+          existing.element.style.backgroundColor = markerState.color;
+          existing.color = markerState.color;
+        }
+        
+        // Actualizar tooltip
+        let distanceText = "";
+        if (pos.estado === "inside" && polygon) {
+          const distance = distanceToPolygonEdge(pos, polygon);
+          distanceText = ` - ${distance.toFixed(1)}m del borde`;
+        }
+        existing.element.title = `${pos.device_id} - ${markerState.label}${distanceText}`;
+        
+        newMarkers.push(existing);
+        existingMarkers.delete(pos.device_id);
+        
+      } else {
+        // CREAR nuevo marcador
+        const markerState = getMarkerState(pos, polygon, warningDistance);
+
+        const el = document.createElement("div");
+        el.className = "custom-marker";
+        el.style.cssText = `
+          background-color: ${markerState.color};
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          border: 3px solid white;
+          box-shadow: 0 0 8px rgba(0,0,0,0.8);
+          cursor: pointer;
+          position: relative;
+        `;
+
+        let distanceText = "";
+        if (pos.estado === "inside" && polygon) {
+          const distance = distanceToPolygonEdge(pos, polygon);
+          distanceText = ` - ${distance.toFixed(1)}m del borde`;
+        }
+
+        el.title = `${pos.device_id} - ${markerState.label}${distanceText}`;
+
+        const marker = new maplibregl.Marker({
+          element: el,
+          anchor: 'center'
+        })
+          .setLngLat([pos.lon, pos.lat])
+          .addTo(mapRef.current);
+
+        newMarkers.push({
+          marker,
+          element: el,
+          deviceId: pos.device_id,
+          color: markerState.color
+        });
+      }
+    });
+
+    // Eliminar marcadores de dispositivos que ya no existen
+    existingMarkers.forEach((markerData) => {
+      markerData.marker.remove();
+    });
+
+    markersRef.current = newMarkers;
+    
   }, [positions, mapReady, polygon, warningDistance]);
 
   // --- ✏️ DIBUJO DE POLÍGONOS ---
